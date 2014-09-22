@@ -1,0 +1,508 @@
+package src.controls
+{
+	import containers.SDPopupWin;
+	
+	import controls.SDCommonButton;
+	import controls.SDLabelButton;
+	
+	import events.ScrollPolicy;
+	
+	import flash.display.Sprite;
+	import flash.events.Event;
+	import flash.events.FocusEvent;
+	import flash.events.MouseEvent;
+	
+	import interfaces.ILabel;
+	
+	import mx.collections.ArrayCollection;
+	import mx.containers.HBox;
+	import mx.containers.VBox;
+	import mx.controls.CheckBox;
+	import mx.controls.ColorPicker;
+	import mx.controls.ComboBox;
+	import mx.controls.Label;
+	import mx.controls.TextArea;
+	
+	import src.MainEditor;
+	import src.containers.SettingPanel;
+	import src.events.CodeEvent;
+	import src.events.EditorEvents;
+
+	public class SettingControls
+	{
+		private var settingPanel:SettingPanel;
+		
+		private var previewModeBox:VBox;
+		private var commonBox:VBox;
+		private var labelBox:VBox;
+		private var btnBox:VBox;
+		
+		/**
+		 * 当前操作的UI 
+		 */
+		private var currentUI:Sprite;
+		
+		/**
+		 *  相对UI的属性
+		 */		
+		private var cor:Object = new Object();
+		
+		private var editStateCheck:CheckBox;
+		
+		private var lastUI:Sprite;
+		
+		public function SettingControls(_settingPanel:SettingPanel)
+		{
+			settingPanel = _settingPanel;
+			previewModeBox = settingPanel.previewModeBox;
+			commonBox = settingPanel.commonBox;
+			labelBox = settingPanel.labelBox;
+			btnBox = settingPanel.btnBox;
+			
+			allSetting()
+			addEvents();			
+		}
+		
+		private function addEvents():void
+		{
+			EditorEvents.dispathcer.addEventListener(EditorEvents.EDITUI,setUI);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.CANCEL_CHOICE,clearAll);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.UPDATE_SETTING,updateSetting);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.REMOVE_UI,clearAll);
+			EditorEvents.dispathcer.addEventListener(CodeEvent.CREATE_XML,function():void{
+				editStateCheck.selected = MainEditor.isEditState});
+		}
+		
+		
+		/**
+		 * 显示UI可以设置的属性
+		 */		
+		private function setUI(e:EditorEvents):void
+		{	
+			var ui:Sprite = e.data;
+			if(!ui)return;
+			if(currentUI == ui)return;
+			if(MainEditor.isPreviewMode)return;
+			
+			clearAll();
+			currentUI = ui;
+			
+			if(currentUI is ILabel)currentUI.addEventListener(Event.CHANGE,textChange);
+			btnBox.visible = true;
+			commonSettint(ui);
+			
+			var item:HBox;
+			if(ui is ILabel){
+				labelSetting(ui);
+			}
+			if(ui is SDLabelButton){
+				buttonSetting(ui);
+			}
+			if(ui is SDPopupWin){
+				titleTextSetting(ui);
+			}
+		}
+		
+		/**
+		 * 清空 
+		 */		
+		public function clearAll(e:EditorEvents = null):void
+		{
+			while(this.commonBox.numChildren!=0){
+				this.commonBox.removeChildAt(0);
+			}
+			while(this.labelBox.numChildren!=0){
+				this.labelBox.removeChildAt(0);
+			}
+			this.btnBox.visible = false;
+			if(currentUI is ILabel)
+				currentUI.removeEventListener(Event.CHANGE,textChange);
+			currentUI = null;
+			settingPanel.stage.focus = null;
+		}
+		
+		/**
+		 * 文本变化 
+		 */		
+		private function textChange(e:Event):void
+		{
+			if(cor.hasOwnProperty("text")){
+				cor["text"].text = currentUI["text"];
+				(cor["text"] as TextArea).height = (cor["text"] as TextArea).textHeight+4;
+			}
+		}
+		
+		/**
+		 * 更新数据 
+		 */		
+		private function updateSetting(e:EditorEvents):void
+		{
+			trace(e.data.name);
+			trace(e.data.x,e.data.y,e.data.width,e.data.height);
+			trace("change the attribute");
+			if(currentUI == e.data){
+				cor["name"].text = e.data.name;
+				cor["x"].text = e.data.x;
+				cor["y"].text = e.data.y;
+				cor["width"].text = e.data.width;
+				cor["height"].text = e.data.height;
+			}
+			e.data.x = e.data.x;
+			e.data.y = e.data.y;
+		}
+		
+		private function drawUI(e:Event):void
+		{
+			currentUI["name"] = cor["name"].text;
+			currentUI["width"] = cor["width"].text;
+			currentUI["height"] = cor["height"].text;
+//			currentUI["x"] = cor["x"].text;
+//			currentUI["y"] = cor["y"].text;
+			currentUI.x = cor["x"].text;
+			currentUI.y = cor["y"].text;
+			
+			if(currentUI.hasOwnProperty("text")){
+				currentUI["text"] = cor["text"].text;
+				(cor["text"] as TextArea).height = (cor["text"] as TextArea).textHeight+4;
+			}
+			
+			if(currentUI.hasOwnProperty("fontSize"))currentUI["fontSize"] = cor["fontSize"].text;
+			if(currentUI.hasOwnProperty("fontFamily"))currentUI["fontFamily"] = cor["fontFamily"].text;
+			if(currentUI.hasOwnProperty("isBold"))currentUI["isBold"] = cor["isBold"].selected;
+			if(currentUI.hasOwnProperty("color"))currentUI["color"] = cor["color"].selectedColor;
+			if(currentUI.hasOwnProperty("label") && cor.hasOwnProperty("label"))
+				currentUI["label"] = cor["label"].text;
+			if(currentUI.hasOwnProperty("titleText"))currentUI["titleText"] = cor["titleText"].text;
+			if(currentUI.hasOwnProperty("labelPlacement"))currentUI["labelPlacement"] = cor["labelPlacement"].text;
+			if(currentUI.hasOwnProperty("textPadding") && cor.hasOwnProperty("textPadding"))
+				currentUI["textPadding"] = cor["textPadding"].text;
+			
+			if(currentUI is ILabel){
+				if(cor.hasOwnProperty("editable"))currentUI["editable"] = cor["editable"].selected;
+			}
+			
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.UPDATE_STAGE));
+		}
+		
+		/**
+		 * 记录文本设置 
+		 */	
+		private function recordTextSetting(e:FocusEvent):void
+		{
+			lastUI = currentUI;
+			if(e.type == FocusEvent.FOCUS_IN){
+				EditControls.addStartEdit(currentUI,{name:cor["name"].text,x:cor["x"].text,y:cor["y"].text,
+										width:cor["width"].text,height:cor["height"].text});
+			}else{
+				EditControls.addEndEdit(lastUI,{name:cor["name"].text,x:cor["x"].text,y:cor["y"].text,
+										width:cor["width"].text,height:cor["height"].text});
+			}
+		}
+		
+		/**
+		 * 全局设置 
+		 */		
+		private function allSetting():void
+		{
+			//previewModeBox.addChild(createBooleanItem(null,"previewMode"));
+			
+			editStateCheck = new CheckBox();
+			var hbox:HBox = new HBox();
+			hbox.addChild(editStateCheck);
+			editStateCheck.label = "编辑状态";
+			editStateCheck.removeEventListener(Event.CHANGE,drawUI);
+			editStateCheck.addEventListener(Event.CHANGE,function():void{
+				MainEditor.isEditState=editStateCheck.selected;
+				EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.EDIT_STATE,currentUI));});
+			previewModeBox.addChild(hbox);
+		}
+		
+		/**
+		 * 公共设置 
+		 */		
+		private function commonSettint(ui:Sprite):void
+		{
+			var item:HBox;
+			item = createTextInputItem(ui,"name");
+			commonBox.addChild(item);
+			
+			item = createTextInputItem(ui,"width");
+			commonBox.addChild(item);
+			
+			item = createTextInputItem(ui,"height");
+			commonBox.addChild(item);
+			
+			item = createTextInputItem(ui,"x");
+			commonBox.addChild(item);
+			
+			item = createTextInputItem(ui,"y");
+			commonBox.addChild(item);
+		}
+		
+		/**
+		 * 文本设置 
+		 */		
+		private function labelSetting(ui:Sprite):void
+		{
+			var item:HBox;
+			item = createTextInputItem(ui,"text");
+			labelBox.addChild(item);
+			
+			item = createTextInputItem(ui,"fontSize");
+			labelBox.addChild(item);
+			
+			item = createTextInputItem(ui,"fontFamily");
+			labelBox.addChild(item);
+			
+			item = creatColorItem(ui,"color");
+			labelBox.addChild(item);
+			
+			item = createBooleanItem(ui,"isBold");
+			labelBox.addChild(item);
+			
+			item = createBooleanItem(ui,"editable");
+			labelBox.addChild(item);
+			
+			item = createTextInputItem(ui,"textPadding");
+			labelBox.addChild(item);
+		}
+		
+		/**
+		 * 按钮设置
+		 */		
+		private function buttonSetting(ui:Sprite):void
+		{
+			var item:HBox;
+			item = createTextInputItem(ui,"label");
+			labelBox.addChild(item);
+			
+			item = createComboBoxItem(ui,"labelPlacement");
+			labelBox.addChild(item);
+			
+			item = createTextInputItem(ui,"fontSize");
+			labelBox.addChild(item);
+			
+			item = createTextInputItem(ui,"fontFamily");
+			labelBox.addChild(item);
+			
+			item = creatColorItem(ui,"color");
+			labelBox.addChild(item);
+			
+			item = createBooleanItem(ui,"isBold");
+			labelBox.addChild(item);
+			
+			item = createTextInputItem(ui,"textPadding");
+			labelBox.addChild(item);
+		}
+		
+		/**
+		 * 窗口标题设置
+		 */		
+		private function titleTextSetting(ui:Sprite):void
+		{
+			var item:HBox;
+			item = createTextInputItem(ui,"titleText");
+			labelBox.addChild(item);
+		}
+		
+		/**
+		 * 创建项目
+		 */		
+		public function createTextInputItem(ui:Sprite,attributeName:String):HBox
+		{
+			var nameLabel:Label = new Label();
+			var textArea:TextArea = new TextArea();
+			textArea.wordWrap = true;
+			textArea.width = 120;
+			textArea.height = 22;
+			textArea.verticalScrollPolicy = ScrollPolicy.OFF;
+			var hbox:HBox = new HBox();
+			hbox.addChild(nameLabel);
+			hbox.addChild(textArea);
+			textArea.addEventListener(Event.CHANGE,drawUI);		
+			textArea.addEventListener(FocusEvent.FOCUS_IN,recordTextSetting)
+			textArea.addEventListener(FocusEvent.FOCUS_OUT,recordTextSetting)
+			
+			switch(attributeName)
+			{
+				case "name":
+					nameLabel.text = "变量名:";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;
+				
+				case "width":
+					nameLabel.text = "宽度	:";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;
+				
+				case "height":
+					nameLabel.text = "高度	:";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;
+				
+				case "x":
+					nameLabel.text = "x	 :";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;
+				
+				case "y":
+					nameLabel.text = "y	 :";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;
+				
+				case "text":
+					nameLabel.text = "文本  :"
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					cor[attributeName].height = currentUI["textHeight"]+22;
+					break;
+				
+				case "fontSize":
+					nameLabel.text = "大小  :";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;
+				
+				case "fontFamily":
+					nameLabel.text = "字体  :";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;
+				
+				case "label":
+					nameLabel.text = "按钮label:";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;
+				
+				case "titleText":
+					nameLabel.text = "窗口标题:";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;
+				
+				/*case "textPadding":
+					nameLabel.text = "文本和组件边缘之间的距离:";
+					textArea.text = ui[attributeName];
+					cor[attributeName] = textArea;
+					break;*/
+			}
+			return hbox;
+		}
+		
+		/**
+		 * 创建Boolean属性容器
+		 */	
+		private function createBooleanItem(ui:Sprite,attributeName:String):HBox
+		{
+			var checkBox:CheckBox = new CheckBox();
+			var hbox:HBox = new HBox();
+			hbox.addChild(checkBox);
+			checkBox.addEventListener(Event.CHANGE,drawUI);
+			
+			switch(attributeName)
+			{
+				case "previewMode":
+					checkBox.label = "预览";
+					checkBox.removeEventListener(Event.CHANGE,drawUI);
+					checkBox.addEventListener(Event.CHANGE,function():void{
+						MainEditor.isPreviewMode=checkBox.selected;
+						if(currentUI)currentUI.filters = [];
+						clearAll();});
+					break;
+				
+				case "isBold":
+					checkBox.label = "粗体";
+					checkBox.selected = ui[attributeName];
+					cor[attributeName] = checkBox;
+					break;
+				
+				case "editable":
+					checkBox.label = "是否编辑";
+					checkBox.selected = ui[attributeName];
+					cor[attributeName] = checkBox;
+					break;
+				
+				case "enabled":
+					checkBox.label = "是否可用";
+					checkBox.selected = ui[attributeName];
+					cor[attributeName] = checkBox;
+					break;
+				
+				case "selectable":
+					checkBox.label = "是否可选";
+					checkBox.selected = ui[attributeName];
+					cor[attributeName] = checkBox;
+					break;
+			}
+			return hbox;
+		}
+		
+		/**
+		 * 创建ComboBox选择容器
+		 */		
+		private function createComboBoxItem(ui:Sprite,attributeName:String):HBox
+		{
+			var nameLabel:Label = new Label();
+			var comboBox:ComboBox = new ComboBox();
+			var hbox:HBox = new HBox();
+			var arr:Array = new Array();
+			hbox.addChild(nameLabel);
+			hbox.addChild(comboBox);
+			comboBox.addEventListener(Event.CHANGE,drawUI);
+			
+			switch(attributeName)
+			{
+				case "labelPlacement":
+					nameLabel.text = "标签位置";
+					arr.push({label:"bottom"});
+					arr.push({label:"top"});
+					arr.push({label:"left"});
+					arr.push({label:"right"});
+					comboBox.dataProvider = arr;
+					if(ui[attributeName] == "bottom"){
+						comboBox.selectedIndex = 0
+					}else if(ui[attributeName] == "top"){
+						comboBox.selectedIndex = 1
+					}else if(ui[attributeName] == "left"){
+						comboBox.selectedIndex = 2
+					}else{
+						comboBox.selectedIndex = 3
+					}
+					cor[attributeName] = comboBox;
+					break;
+			}
+			return hbox;
+		}
+		
+		/**
+		 * 创建选择颜色容器 
+		 * @return 
+		 * 
+		 */
+		private function creatColorItem(ui:Sprite,attributeName:String):HBox
+		{
+			var nameLabel:Label = new Label();
+			var colorPicker:ColorPicker = new ColorPicker();
+			var hbox:HBox = new HBox();
+			hbox.addChild(nameLabel);
+			hbox.addChild(colorPicker);
+			colorPicker.addEventListener(Event.CHANGE,drawUI);
+			
+			switch(attributeName)
+			{
+				case "color":
+					nameLabel.text = "颜色  :";
+					colorPicker.selectedColor = ui[attributeName];
+					cor[attributeName] = colorPicker;
+					break;
+			}
+			return hbox;
+		}
+	}
+}

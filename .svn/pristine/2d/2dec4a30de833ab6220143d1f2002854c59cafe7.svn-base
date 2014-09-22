@@ -1,0 +1,14 @@
+package org.tool
+{
+	/**
+	 *@author as3Lover_ph
+	 *@date 2013-2-28
+	 */
+	public class PoolTest
+	{
+		public function PoolTest()
+		{
+			
+		}
+	}
+}

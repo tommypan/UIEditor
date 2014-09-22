@@ -1,0 +1,252 @@
+package src.controls
+{
+	import containers.SDBasicsPane;
+	import containers.SDPopupWin;
+	
+	import core.SDSprite;
+	
+	import flash.display.Sprite;
+	import flash.events.Event;
+	import flash.utils.getQualifiedClassName;
+	
+	import src.EditPanel;
+	import src.events.CodeEvent;
+	import src.events.ComponentEvent;
+	import src.events.EditorEvents;
+	import src.managers.UIFactory;
+	
+	/**
+	 * 导出成XML 
+	 * @author yurs
+	 * 
+	 */	
+	public class XMLControls
+	{
+		/**
+		 * 当前界面的XML
+		 */		
+		private var XMLStr:String;
+		
+		/**
+		 * 导入的XML
+		 */		
+		private var importXMLStr:String;
+		
+		/**
+		 * 当前界面的代码
+		 */
+		private var CodeStr:String;
+		
+		private var mainWin:Sprite;
+		private var componentArr:Array;
+		
+		/**
+		 *在编辑器中每个组件的皮肤属性 ，当在生成代码的时候，这个属性很有用，
+		 * 这个属性是由settingcontrol实时更新过来的
+		 */		
+		private var skinAttribues:Object = new Object();
+		
+		private var componentsAtrributes:Object;
+		private var tempPanelArr:Array = [];
+		
+		private var tempPanel:SDSprite;
+		
+		public function XMLControls()
+		{
+			EditorEvents.dispathcer.addEventListener(CodeEvent.CREAT_CODE,exportCode);
+			EditorEvents.dispathcer.addEventListener(CodeEvent.CREATE_XML,exportXML);
+			EditorEvents.dispathcer.addEventListener(CodeEvent.IMPORT_XML,importXML);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.GET_MAINWIN,getMainWin);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.GET_SKINATTRIBUTES,getSkinAttributes);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.GET_COMPONENTSATTRIBUTES,getComponetnesAttributes);
+		}
+		
+		protected function getComponetnesAttributes(event:EditorEvents):void
+		{
+			componentsAtrributes = event.data;
+		}
+		
+		protected function getSkinAttributes(event:EditorEvents):void
+		{
+			skinAttribues = event.data;
+		}		
+		
+		/**
+		 * 获取主舞台 
+		 * @param e
+		 * 
+		 */		
+		private function getMainWin(e:EditorEvents):void
+		{
+			componentArr = e.data;
+			mainWin = componentArr[0]["ui"];
+		}
+		
+		protected function exportCode(event:CodeEvent):void
+		{
+			var importStr:String = "import morn.core.components."
+			var CodeXML:XML = new XML(creatXMLString(event));
+			CodeStr = "";
+			CodeStr += "package { " + "\n";
+			var importString:String = "import flash.display.Sprite" + "\n";
+			var compoentsString:String = "";
+			for(var i:int =0; i<CodeXML.children().length();i++) {
+				importString += importStr  + CodeXML.children()[i].name().localName + ";" + "\n";
+				compoentsString += "var " + CodeXML.children()[i].@name + ":" +
+					CodeXML.children()[i].name().localName + " = " +	"new "  +
+					CodeXML.children()[i].name().localName + "()" + ";" +"\n";
+				var attObject:Object = componentsAtrributes["morn.core.components::"+CodeXML.children()[i].name().localName];
+				for(var att:String in attObject) {
+					compoentsString += CodeXML.children()[i].@name + "."+ att + "=" + CodeXML.children()[i].attribute(att) + ";" + "\n";
+				}
+				var skinObject:Object = skinAttribues["morn.core.components::"+CodeXML.children()[i].name().localName];
+				for(var skin:String in skinObject) {
+					compoentsString += CodeXML.children()[i].@name + "."+ att + "=" + CodeXML.children()[i].attribute(att) + ";" + "\n";
+				}
+				compoentsString += "this.addChild(" + CodeXML.children()[i].@name + ")" + ";" + "\n";
+			}
+			CodeStr += importString;
+			CodeStr += "public class " + "uicom" + " extends Sprite { " + "\n" +"public function " 
+				+ "uicom" + "() {" + "\n";
+			CodeStr += compoentsString;
+			CodeStr += "}" + "\n" + "}" + "\n" + "}";
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.CREATE_CODE_COMPLETE,CodeStr));
+		}
+		
+		/**
+		 * 获取编码 
+		 * @param e
+		 * 
+		 */		
+		public function exportXML(e:CodeEvent):void
+		{
+			var XMLString:String = creatXMLString(e);
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.CREATE_XML_COMPLETE,XMLStr));
+		}
+		
+		
+		/**
+		 * 导入代码 
+		 * @param e
+		 * 
+		 */		
+		private function importXML(e:CodeEvent):void
+		{
+			importXMLStr = e.data;
+			EditorEvents.dispathcer.dispatchEvent(new ComponentEvent(ComponentEvent.REMOVE_ALLCUSTOMUI));
+			var codeXML:XML = new XML(importXMLStr)
+			for(var i:Number = 0;i < codeXML.children().length();i++){
+				tempPanel = null;
+				if(i != 0){
+					var customLayer:Sprite = new Sprite();
+					customLayer.name = codeXML.children()[i].name().localName;
+					customLayer.y = 40;
+					var obj:Object = UIFactory.createUI(UIFactory.BasicsPane);
+					var ui:Sprite = obj.ui;
+					ui.name = obj.name;
+					ui.x = codeXML.children()[i].children()[0].@x;
+					ui.y = codeXML.children()[i].children()[0].@y;
+					ui.width = codeXML.children()[i].children()[0].@width;
+					ui.height = codeXML.children()[i].children()[0].@height;
+					customLayer.addChild(ui);
+					customLayer.visible = false;
+					EditorEvents.dispathcer.dispatchEvent(new ComponentEvent(ComponentEvent.IMPORT_CREATE_CUSTOMBTN,customLayer.name));
+					EditorEvents.dispathcer.dispatchEvent(new ComponentEvent(ComponentEvent.IMPORT_CREATE_CUSTOMUI,[customLayer,ui]));
+					mainWin = ui;
+					
+					analyticCode(codeXML.children()[i].children()[0].toString());
+				}else{
+					analyticCode(codeXML.children()[i].toString());
+				}
+			}
+		}
+		
+		/**
+		 * 解析代码XML 
+		 * @param str
+		 * 
+		 */		
+		private function analyticCode(str:String):void
+		{
+			var codeXML:XML = new XML(str)
+			var obj:Object;	
+			
+			if(codeXML.@name == "win"){
+				(mainWin as SDPopupWin).titleText = codeXML.@titleText;
+				(mainWin as SDPopupWin).x = codeXML.@x;
+				(mainWin as SDPopupWin).y = codeXML.@y;
+				(mainWin as SDPopupWin).width = codeXML.@width;
+				(mainWin as SDPopupWin).height = codeXML.@height;
+			}
+			
+			for(var i:Number = 0;i < codeXML.children().length();i++){
+				obj = new Object();	
+				/**如果是底部按钮容器则跳过创建直接开始创建底部按钮*/
+				if(codeXML.children()[i].@name == "bottomPane"){
+					analyticCode(codeXML.children()[i].toString());
+					continue;
+				}
+				
+				obj.ui = UIFactory.createUI(codeXML.children()[i].name().localName).ui;
+				obj.name = codeXML.children()[i].@name;
+				
+				/**如果父容器为底部按钮容器*/
+				if(codeXML.@name == "bottomPane"){
+					obj.parent = (mainWin as SDPopupWin).bottomPane;
+				}else{
+					obj.parent = (tempPanel)?tempPanel:mainWin;
+				}
+				
+				obj.x = codeXML.children()[i].@x
+				obj.y = codeXML.children()[i].@y
+				obj.width = codeXML.children()[i].@width
+				obj.height = codeXML.children()[i].@height;
+				
+				if(codeXML.children()[i].@name != undefined)obj.name 					 	= codeXML.children()[i].@name
+				if(codeXML.children()[i].@label != undefined)obj.label 				 		= codeXML.children()[i].@label
+				if(codeXML.children()[i].@labelPlacement != undefined)obj.labelPlacement	= codeXML.children()[i].@labelPlacement
+				if(codeXML.children()[i].@fontSize != undefined)obj.fontSize	 		 	= codeXML.children()[i].@fontSize
+				if(codeXML.children()[i].@fontFamily != undefined)obj.fontFamily 		 	= codeXML.children()[i].@fontFamily
+				if(codeXML.children()[i].@color != undefined)obj.color 				 		= codeXML.children()[i].@color
+				if(codeXML.children()[i].@isBold != undefined)obj.isBold 				 	= codeXML.children()[i].@isBold
+				if(codeXML.children()[i].@textPadding != undefined)obj.textPadding  	 	= codeXML.children()[i].@textPadding
+				if(codeXML.children()[i].@text != undefined)obj.text 					 	= codeXML.children()[i].@text
+				if(codeXML.children()[i].@editable != undefined)obj.editable 			 	= codeXML.children()[i].@editable
+				
+				EditorEvents.dispathcer.dispatchEvent(new ComponentEvent(ComponentEvent.IMPORT_CREATEUI,obj));
+				
+				if(codeXML.children()[i].name().localName == UIFactory.BasicsPane){
+					tempPanelArr.push(obj.ui);
+					tempPanel = tempPanelArr[tempPanelArr.length-1];
+					analyticCode(codeXML.children()[i].toString());
+				}
+				if(i+1==codeXML.children()[i].length() || codeXML.children()[i].length()==0)tempPanelArr.pop();
+				if(tempPanelArr.length == 0)tempPanel = null;
+			}
+		}
+		
+		private function creatXMLString(e:CodeEvent):String {
+			XMLStr = "";
+			componentArr = e.data;
+			mainWin = componentArr[0]["ui"];
+			
+			XMLStr += "<UIMeditor>\n"
+			for(var i:Number = 0;i < componentArr.length;i++){
+				if(i == 0){
+				}else{
+					XMLStr += "<"+getQualifiedClassName(componentArr[i]["ui"]).split("::")[1] + " ";
+					for(var skin:String in skinAttribues[getQualifiedClassName(componentArr[i]["ui"])]) {
+						XMLStr += skin + "=" +'"'+ skinAttribues[getQualifiedClassName(componentArr[i]["ui"])][skin] +'"';
+					}
+					for(var attributes:String in componentsAtrributes[getQualifiedClassName(componentArr[i]["ui"])]){
+						XMLStr += attributes + "=" +'"' + componentArr[i]["ui"][attributes] + '"';
+					}
+					XMLStr += ">";
+					XMLStr += "</"+getQualifiedClassName(componentArr[i]["ui"]).split("::")[1]+">\n";
+				}
+			}
+			XMLStr += "</UIMeditor>"
+			return XMLStr;
+		}
+	}
+}

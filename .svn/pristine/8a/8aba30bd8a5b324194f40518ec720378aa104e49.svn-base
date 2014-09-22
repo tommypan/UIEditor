@@ -1,0 +1,24 @@
+package src.models
+{
+	import flash.utils.Dictionary;
+
+	/**
+	 *@author tanshiyu
+	 *@date 2013-9-9
+	 */
+	public class XMLModel
+	{
+		public var componentArr:Dictionary;
+		
+		/**
+		 *在编辑器中每个组件的皮肤属性 ，当在生成代码的时候，这个属性很有用，
+		 * 这个属性是由settingcontrol实时更新过来的
+		 */		
+		public var skinUrl:Dictionary = new Dictionary();
+		
+		public var componentsAtrributes:Object;
+		public function XMLModel()
+		{
+		}
+	}
+}

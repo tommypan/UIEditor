@@ -1,0 +1,17 @@
+package src.models
+{
+	import flash.utils.Dictionary;
+
+	/**
+	 *@author tanshiyu
+	 *@date 2013-9-9
+	 */
+	public class ProjectModel
+	{
+		public var urlDictionary:Dictionary = new Dictionary();
+		public var dictionary:Dictionary = new Dictionary();
+		public function ProjectModel()
+		{
+		}
+	}
+}

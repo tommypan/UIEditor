@@ -1,0 +1,208 @@
+package src.controls
+{
+	import containers.SDBasicsPane;
+	import containers.SDPopupWin;
+	
+	import controls.SDCommonButton;
+	
+	import flash.display.DisplayObject;
+	import flash.display.Sprite;
+	import flash.events.Event;
+	import flash.events.MouseEvent;
+	import flash.geom.Point;
+	import flash.utils.ByteArray;
+	
+	import mx.containers.Canvas;
+	import mx.controls.Alert;
+	
+	import src.containers.StagePanel;
+	import src.events.ComponentEvent;
+	import src.events.EditorEvents;
+	import src.events.KeyEvent;
+	import src.managers.UIFactory;
+	import src.models.StageModel;
+	
+	import utils.VisualUtils;
+	
+	/**
+	 * 主舞台控制器 
+	 * @author yurs 
+	 * 
+	 */	
+	public class StageControls
+	{
+		private var stagePanel:StagePanel;
+		
+		private var stageModel:StageModel;
+		
+		
+		
+		
+		/**
+		 *当前创建UI组件的id，新创建一个UI组件后，id会自动+1； 
+		 */
+		private var creatUIID:int = 1;
+		
+		/**
+		 *当前操作UI的id； 
+		 */
+		private var currentID:int;
+		
+		/**
+		 * 当前从组件栏选中的组件 
+		 */		
+		private var tempFrame:Canvas;
+		
+		/**
+		 *当前正在创建的UI 
+		 */
+		private var currentCreatUI:DisplayObject;
+		
+		public function StageControls(_stage:StagePanel,_stageModel:StageModel)
+		{
+			stagePanel = _stage;
+			stageModel = _stageModel;
+			addEvent();
+		}
+		
+		/**
+		 * 添加侦听 
+		 * 
+		 */		
+		private function addEvent():void
+		{
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.DOWN_UI,downUI);
+			stagePanel.parent.addEventListener(MouseEvent.MOUSE_UP,tempFrameUp,true);
+			EditorEvents.dispathcer.addEventListener(KeyEvent.CANCEL_UI,keyEscCancelUI);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.REMOVE_UI,function(e:EditorEvents):void{removeUI(e.data)});
+		}
+		
+		/**
+		 * 点击拖动组件 
+		 * @param ary
+		 * 
+		 */
+		private function downUI(e:ComponentEvent):void
+		{
+			var name:String = e.data.label;
+			currentCreatUI = UIFactory.createUI(name);
+			
+			tempFrame = new Canvas();
+			tempFrame.name = currentCreatUI.name;
+			tempFrame.graphics.beginFill(0x41415D);
+			tempFrame.graphics.lineStyle(5,0x412E56);
+			tempFrame.graphics.drawRect(0,0,currentCreatUI.width,currentCreatUI.height);
+			tempFrame.graphics.endFill();
+			stagePanel.parent.addChild(tempFrame);
+			tempFrame.alpha = 0.5;
+			var point:Point = e.data.parent.localToGlobal(new Point(e.data.x,e.data.y));
+			tempFrame.x = point.x;
+			tempFrame.y = point.y;
+			tempFrame.startDrag();
+			tempFrame.mouseEnabled = false;
+		}
+		//		
+		//		private function clone(source:Object):*
+		//		{
+		//			var myBA:ByteArray = new ByteArray();
+		//			myBA.writeObject(source);
+		//			myBA.position = 0;
+		//			return(myBA.readObject());
+		//		}
+		
+		
+		
+		/**
+		 * 鼠标抬起 
+		 * @param e
+		 * 
+		 */	
+		private function tempFrameUp(e:MouseEvent):void
+		{
+			if(!tempFrame)return;
+			tempFrame.stopDrag();
+			stagePanel.parent.removeChild(tempFrame);
+			var point:Point = stagePanel.uiLayer.globalToLocal(new Point(tempFrame.x,tempFrame.y));
+			tempFrame = null;
+			currentCreatUI.x = point.x;
+			currentCreatUI.y = point.y;
+			createUI(currentCreatUI);
+		}
+		
+		/**
+		 * 点击某个组件 
+		 */		
+		private function downCurUI(e:MouseEvent):void
+		{
+			e.stopImmediatePropagation();
+			if(stageModel.IDUIObject[currentID]) stageModel.IDUIObject[currentID].filters = [];
+			currentID = stageModel.UIIDDictionary[e.target];
+			e.target.startDrag();
+			e.target.addEventListener(MouseEvent.MOUSE_UP,upCurUI);				
+			stagePanel.parent.addEventListener(Event.ENTER_FRAME,mouseMove);
+			VisualUtils.redFilter(e.target);
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.EDITUI,e.currentTarget));
+		}
+		
+		/**
+		 * 按esc取消组件 
+		 * @param e
+		 * 
+		 */		
+		private function keyEscCancelUI(e:KeyEvent):void
+		{
+			if(currentID)stageModel.IDUIObject[currentID].filters = [];
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.CANCEL_CHOICE,currentID));
+		}
+		
+		/**
+		 * 从某个组件抬起  
+		 * @param e
+		 * 
+		 */
+		private function upCurUI(e:MouseEvent = null):void
+		{
+			e.stopPropagation();
+			e.currentTarget.stopDrag();
+			e.currentTarget.removeEventListener(MouseEvent.MOUSE_UP,upCurUI);		
+			stagePanel.parent.removeEventListener(Event.ENTER_FRAME,mouseMove);
+		}
+		
+		/**
+		 * 鼠标移动时时更新 
+		 * @param e
+		 * 
+		 */		
+		private function mouseMove(e:Event):void
+		{
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.UPDATE_SETTING,stageModel.IDUIObject[currentID]));
+		}
+		
+		/**
+		 * 创建组件 
+		 * @param e
+		 * 
+		 */		
+		private function createUI(ui:DisplayObject):void
+		{
+			//这点你牛逼，我就先不动你，以后我动死你，全部改掉 .....fuck
+			stageModel.IDUIObject[creatUIID] = ui;
+			stageModel.UIIDDictionary[ui] = creatUIID;
+			creatUIID ++;
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.CREAT_UI,ui));
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.UPDATE_UIID,[stageModel.IDUIObject,stageModel.UIIDDictionary]));
+			stagePanel.uiLayer.addChild(ui);
+			ui.addEventListener(MouseEvent.MOUSE_DOWN,downCurUI);
+		}
+		
+		/**
+		 * 移除UI 
+		 */		
+		private function removeUI(ui:Sprite):void
+		{
+			ui.parent.removeChild(ui);
+			stageModel.IDUIObject[stageModel.UIIDDictionary[ui]] = null;
+			stageModel.UIIDDictionary[ui] = null;
+		}
+	}
+}

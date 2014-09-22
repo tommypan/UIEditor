@@ -1,0 +1,115 @@
+package org.cacher 
+{
+	import flash.display.*;
+	import flash.errors.*;
+	import flash.events.NetStatusEvent;
+	import flash.net.*;
+	import flash.system.*;
+	
+	import org.cacher.interfaces.ICacher;
+	import org.utils.ClassManager;
+	
+	/**
+	 * 资源库缓存器，组合使用了LocalCacher。单例
+	 *@author as3Lover_ph
+	 *@date 2013-2-22
+	 */	
+	public class SmartSourceCacher implements ICacher
+	{
+		private var _cacher:ICacher;
+		
+		private static var _instance:SmartSourceCacher;
+		
+		public var global:SharedObject;
+		
+		public function SmartSourceCacher($singltonEnforcer:SingltonEnforcer)
+		{
+			if(!$singltonEnforcer)
+			{
+				
+				throw new IllegalOperationError("不能直接实例化SmartSourceCacher类");
+				
+			}else{
+				try
+				{
+					// 获取外存
+					global = SharedObject.getLocal("phResCQUPT2013");
+					global.addEventListener(NetStatusEvent.NET_STATUS, onNetStatusHandler);
+					global.flush(10000000000);
+					_cacher = new LocalCacher();
+				}catch (e:Error){
+					
+				}
+				
+			}
+		}
+		
+		protected function onNetStatusHandler(event:NetStatusEvent):void
+		{
+			
+		}
+		
+		/**
+		 *获得单例 
+		 * @return SmartSourceCacher 
+		 * 
+		 */
+		public static function getInstance() : SmartSourceCacher
+		{
+			_instance ||= new SmartSourceCacher( new SingltonEnforcer())
+			return _instance;
+		}
+		
+		public function add(key_:Object,value_:Object, fun:Function = null) : void
+		{
+			_cacher.add(key_, value_, fun);
+			return;
+		}
+		
+		public function getValue(key:Object) : Object
+		{
+			return _cacher.getValue(key);
+		}
+		
+		/**
+		 * (还没想好)
+		 * 获取内存中的bitMapData
+		 * @param key bitMapData键值
+		 * @param param2 ApplicationDomain
+		 * @return 若有则直接返回值，没有就创造一个实例，并存入内存
+		 * 
+		 */		
+		public function getPreloadBitmapData(key:String, applicationDomain:ApplicationDomain = null) : BitmapData
+		{
+			var _loc_3:* = this._cacher.getValue(key) as BitmapData;
+			if (_loc_3 != null)
+			{
+				return _loc_3;
+			}
+			_loc_3 = ClassManager.createBitmapDataInstance(key, applicationDomain);
+			getInstance().add(key, _loc_3);
+			return _loc_3;
+		}
+		
+		public function remove(key:Object) : void
+		{
+			_cacher.remove(key);
+			return;
+		}
+		
+		public function deleteAll() : void
+		{
+			_cacher.deleteAll();
+			return;
+		}
+		
+		public function contain(key:Object) : Boolean
+		{
+			return _cacher.contain(key);
+		}
+		
+		
+		
+	}
+}
+internal class SingltonEnforcer{}

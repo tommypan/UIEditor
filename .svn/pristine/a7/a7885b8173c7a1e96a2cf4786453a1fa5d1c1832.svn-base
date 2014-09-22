@@ -1,0 +1,30 @@
+package src.containers
+{
+	import mx.containers.VBox;
+	import mx.controls.Label;
+	
+	import spark.components.Button;
+	import spark.components.VGroup;
+
+	/**
+	 * 项目库，里面包括Ui组件和一些图片
+	 * @author tanshiyu
+	 * 
+	 */
+	public class ProjectLibraries extends mx.containers.VBox
+	{
+		public var projectLabel:Label = new Label();
+		public var openbutton:Button = new Button();
+		public var resBox:VBox = new VBox();
+		public var componentsBox:VBox = new VBox();
+		public function ProjectLibraries()
+		{
+			projectLabel.text = "项目库";
+			this.addChild(projectLabel);
+			openbutton.label = "打开";
+			this.addChild(openbutton);
+			this.addChild(componentsBox);
+			this.addChild(resBox);
+		}
+	}
+}

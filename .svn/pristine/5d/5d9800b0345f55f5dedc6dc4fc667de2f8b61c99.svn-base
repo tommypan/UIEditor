@@ -1,0 +1,27 @@
+package morn.core.components
+{
+	import flash.display.DisplayObject;
+	
+	import mx.core.UIComponent;
+
+	/**
+	 *@author tanshiyu
+	 *@date 2013-9-5
+	 */
+	public class SimpleImage extends Component
+	{
+		private var _image:DisplayObject;
+		public function SimpleImage()
+		{
+			
+		}
+		
+		public function set image(image:DisplayObject):void {
+			_image = image;
+			trace(_image);
+			trace(this.contains(_image));
+			if(this.contains(_image)) {return;}
+			this.addChild(_image);
+		}
+	}
+}

@@ -1,0 +1,19 @@
+package src.models
+{
+	import flash.utils.Dictionary;
+
+	/**
+	 *@author tanshiyu
+	 *@date 2013-9-9
+	 */
+	public class MenuModel
+	{
+		/**
+		 *UI与id数组，可以根据id找到相应的UI 
+		 */
+		public var UIIDObject:Dictionary;
+		public function MenuModel()
+		{
+		}
+	}
+}

@@ -1,0 +1,52 @@
+package org.loader.interfaces
+{
+	import flash.events.Event;
+	import flash.events.IOErrorEvent;
+	import flash.system.LoaderContext;
+	
+	/**
+	 * BytesLoader和DisplayLoader实现了其接口
+	 *@author as3Lover_ph
+	 *@date 2013-1-22
+	 */
+	public interface ILoader
+	{
+		public function ILoader();
+		/**
+		 *开始加载 
+		 * @param url_要加载的资源地址
+		 * @param $tryLoad加载完成后判断还有没加载对象函数
+		 * @param context  LoaderContext，默认放在ApplicationDomain.currentDomain
+		 * 
+		 */		
+		function load (url_ :String,$tryLoad:Function,context:LoaderContext=null) :void;
+		
+		/**
+		 *释放加载器 
+		 * 
+		 */		
+		function dispose () :void;
+		
+		/**
+		 *差错处理 
+		 * @param event
+		 * 
+		 */		
+		function onHandleError(event:IOErrorEvent):void;
+		
+		/**
+		 *加载完成 
+		 * @param event
+		 * 
+		 */		
+		function onLoadedComplete(event:Event):void;
+		
+		/**
+		 *是否正在加载 [可读]
+		 * @return 布尔值
+		 * 
+		 */		
+		function get isLoading():Boolean;
+		
+	}
+}

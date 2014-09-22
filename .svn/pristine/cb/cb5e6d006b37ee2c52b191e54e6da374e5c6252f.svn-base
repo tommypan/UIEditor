@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<componentsAttributes>
+
+	<Button name="morn.core.components::Button">
+		<name>name,Input</name>
+		<x>x,Input</x>
+		<y>y,Input</y>
+		<width>width,Input</width>
+		<height>height,Input</height>
+		<skin>skin,Input</skin>
+	</Button>
+	
+	<Label name="morn.core.components::Label">
+		<name>name,Input</name>
+		<x>x,Input</x>
+		<y>y,Input</y>
+		<width>width,Input</width>
+		<height>height,Input</height>
+		<skin>skin,Input</skin>
+		<bold>bold,Boolean</bold>
+	</Label>
+	
+	<Image name="morn.core.components::Image">
+		<name>name,Input</name>
+		<x>x,Input</x>
+		<y>y,Input</y>
+		<width>width,Input</width>
+		<height>height,Input</height>
+	</Image>
+
+</componentsAttributes>

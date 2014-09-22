@@ -1,0 +1,132 @@
+package src.controls
+{
+	import flash.events.MouseEvent;
+	import flash.net.FileReference;
+	
+	import mx.skins.spark.EditableComboBoxSkin;
+	
+	import src.containers.MenuPanel;
+	import src.events.CodeEvent;
+	import src.events.EditorEvents;
+	import src.events.KeyEvent;
+	import src.events.MenuEvents;
+	import src.models.MainEditorModel;
+	import src.models.MenuModel;
+	
+	/**
+	 * 菜单控制器 
+	 * @author yurs
+	 * 
+	 */	
+	public class MenuControls
+	{
+		private var state:String = "";
+		private var menuPanel:MenuPanel;
+		private var menuModel:MenuModel;
+		
+		public function MenuControls(_menuPanel:MenuPanel,_menuModel:MenuModel)
+		{
+			menuPanel = _menuPanel;
+			menuModel = _menuModel;
+			
+			MenuEvents.dispatcher.addEventListener(MenuEvents.IDINDEX_UPDATA,function(e:MenuEvents):void{
+				menuModel.IDindex = e.data[0];
+				menuModel.IDUIObject = e.data[1]
+			});
+			
+			EditorEvents.dispathcer.addEventListener(EditorEvents.CREATE_XML_COMPLETE,function(e:EditorEvents):void{
+				menuPanel.codePanel.codeText.text = e.data;
+			});
+			EditorEvents.dispathcer.addEventListener(EditorEvents.CREATE_CODE_COMPLETE,function(e:EditorEvents):void{
+				menuPanel.codePanel.codeText.text = e.data;
+			});
+			
+			menuPanel.exportCodeBtn.addEventListener(MouseEvent.CLICK,function():void{codeBtnClick("exportCode")});
+			menuPanel.importXMLBtn.addEventListener(MouseEvent.CLICK,function():void{codeBtnClick("IMPORTXML")});
+			menuPanel.exportXMLBtn.addEventListener(MouseEvent.CLICK,function():void{codeBtnClick("exportXml")});
+			menuPanel.codePanel.x = 200,menuPanel.codePanel.y = 100;
+			menuPanel.selectCodePanel.x = 400,menuPanel.selectCodePanel.y = 250;
+
+		}
+		
+		/**
+		 * 点击菜单按钮，自己进行判断
+		 * @param e
+		 * 
+		 */		
+		private function codeBtnClick(name:String):void
+		{
+			state = "";
+			MainEditorModel.isEditState = false;
+			
+			
+			switch(name) {
+				case "exportCode":
+					state = "EXPORTCODE";
+					menuPanel.parent.addChild(menuPanel.selectCodePanel);
+					menuPanel.selectCodePanel.danli.visible = true;
+					menuPanel.selectCodePanel.codeButton.addEventListener(MouseEvent.CLICK,function():void{codeBtnClick(state)});
+					break;
+				case "exportXml":
+					state = "EXPORTXML";
+					menuPanel.parent.addChild(menuPanel.selectCodePanel);
+					menuPanel.selectCodePanel.danli.visible = false;
+					menuPanel.selectCodePanel.codeButton.addEventListener(MouseEvent.CLICK,function():void{codeBtnClick(state)});
+					break;
+				case "IMPORTXML":
+					menuPanel.codePanel.title = "导入XML";
+					menuPanel.codePanel.codeText.text = "";
+					menuPanel.parent.addChild(menuPanel.codePanel);
+					menuPanel.codePanel.codeBtn.addEventListener(MouseEvent.CLICK,codeEnter);
+					state = "IMPORTXML";
+					break;
+				case "EXPORTCODE":
+					state = "EXPORTCODE";
+					menuPanel.codePanel.title = "导出代码";
+					menuPanel.parent.addChild(menuPanel.codePanel);
+					if(menuPanel.selectCodePanel.parent)menuPanel.selectCodePanel.parent.removeChild(menuPanel.selectCodePanel);
+					EditorEvents.dispathcer.dispatchEvent(new CodeEvent(CodeEvent.CREAT_CODE,[menuModel.IDindex,menuModel.IDUIObject,menuPanel.selectCodePanel.cName.text,menuPanel.selectCodePanel.danli.selected]));
+					menuPanel.selectCodePanel.codeButton.removeEventListener(MouseEvent.CLICK,function():void{codeBtnClick(state)});
+					menuPanel.codePanel.codeBtn.addEventListener(MouseEvent.CLICK,codeEnter);
+					break;
+				case "EXPORTXML":
+					state = "EXPORTXML";
+					menuPanel.codePanel.title = "导出XML";
+					menuPanel.parent.addChild(menuPanel.codePanel);
+					if(menuPanel.selectCodePanel.parent)menuPanel.selectCodePanel.parent.removeChild(menuPanel.selectCodePanel);
+					EditorEvents.dispathcer.dispatchEvent(new CodeEvent(CodeEvent.CREATE_XML,[menuModel.IDindex,menuModel.IDUIObject]));
+					menuPanel.selectCodePanel.codeButton.removeEventListener(MouseEvent.CLICK,function():void{codeBtnClick(state)});
+					menuPanel.codePanel.codeBtn.addEventListener(MouseEvent.CLICK,codeEnter);
+					break;
+			}
+		}
+		
+		/**
+		 * 导入代码 
+		 * @param e
+		 * 
+		 */		
+		private function codeEnter(e:MouseEvent):void
+		{
+			menuPanel.codePanel.parent.removeChild(menuPanel.codePanel);
+			menuPanel.codePanel.codeBtn.removeEventListener(MouseEvent.CLICK,codeEnter);
+			
+			switch(state) {
+				case "EXPORTXML":
+					var xml:XML = new XML(menuPanel.codePanel.codeText.text);
+					new FileReference().save(xml,menuPanel.selectCodePanel.cName.text+".xml");
+					break;
+				case "EXPORTCODE":
+				trace("dsads");
+					//					var code:ByteArray =new ByteArray();
+					//					code.writeMultiByte(codePanel.codeText.text,"utf-8");
+					var code:String = menuPanel.codePanel.codeText.text;
+					new FileReference().save(code,menuPanel.selectCodePanel.cName.text+".as");
+					break;
+				case "IMPORTXML":
+					if(menuPanel.codePanel.title == "导入XML")EditorEvents.dispathcer.dispatchEvent(new CodeEvent(CodeEvent.IMPORT_XML,menuPanel.codePanel.codeText.text));
+					break;
+			}
+		}
+	}
+}

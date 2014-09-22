@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:TitleWindow xmlns:mx="http://www.adobe.com/2006/mxml" layout="absolute" width="644"
+				height="483" title="" fontSize="12" close="close()" showCloseButton="true"
+				mouseDown="onmouseDown()" mouseUp="onmouseUp()">
+	<mx:Script>
+		<![CDATA[
+			private function close():void
+			{
+				if(this.parent)this.parent.removeChild(this);
+			}
+			
+			private function onmouseDown():void{
+				if(this.mouseY > 0 && this.mouseY < 30){
+					this.startDrag();
+				}
+			}
+			private function onmouseUp():void {
+				this.stopDrag();
+			}
+		]]>
+	</mx:Script>
+	<mx:Button x="284" y="404" label="确定" width="72" height="36" id="codeBtn"/>
+	<mx:TextArea x="10" y="10" width="622" height="386" id="codeText"/>
+</mx:TitleWindow>

@@ -1,0 +1,42 @@
+package src.models
+{
+	import flash.utils.Dictionary;
+
+	/**
+	 *@author tanshiyu
+	 *@date 2013-9-9
+	 */
+	public class MainEditorModel
+	{
+		//-------------------------全局属性---------------------
+		/**
+		 * 预览模式 
+		 */		
+		public static var isPreviewMode:Boolean = false;
+		
+		/**
+		 * 编辑模式 
+		 */		
+		public static var isEditState:Boolean = false;
+		
+		/**
+		 *编辑皮肤 
+		 */
+		public static var isEditSkin:Boolean = false;
+		
+		//-------------------------全局变量----------------------
+		/**
+		 *UI的ID数组，里面相应的ID对应着相应的UI 
+		 */
+		public var IDUIObject:Dictionary = new Dictionary();
+		
+		/**
+		 *UI的ID字典，里面相应的UI对应着相应的ID，与上面的那个相辅相成 
+		 */
+		public var UIIDDictionary:Dictionary =new Dictionary();
+		
+		public function MainEditorModel()
+		{
+		}
+	}
+}

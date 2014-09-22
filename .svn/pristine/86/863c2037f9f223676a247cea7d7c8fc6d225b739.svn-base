@@ -1,0 +1,48 @@
+package src.containers
+{
+	import flash.display.DisplayObject;
+	
+	import mx.containers.Box;
+	import mx.containers.VBox;
+	import mx.controls.Label;
+
+	/**
+	 * 属性设置容器 
+	 * @author yurs
+	 * 
+	 */	
+	public class SettingPanel extends VBox
+	{
+		private var settingLabel:Label = new Label();
+		/**
+		 * 预览模式 和改变皮肤模式
+		 * 通过改变这个模式，你可以选择改变皮肤和进行九宫格缩放
+		 */		
+		public var previewModeBox:VBox = new VBox();
+		
+		/**
+		 * 共用属性 
+		 */		
+		public var commonBox:VBox = new VBox();
+		
+		/**
+		 *皮肤属性 
+		 */
+		public var skinsBox:VBox = new VBox();
+		
+		/**
+		 * 装着各个组件的皮肤信息，包括皮肤的样式和状态（比如simpleButton的upstate皮肤是一个sprite）
+		 */
+		public var skinboxArr:Object = new Object;
+		public function SettingPanel()
+		{
+			settingLabel.text = "属性设置";
+			this.addChild(settingLabel);
+			this.addChild(previewModeBox);
+			this.addChild(commonBox);
+			this.addChild(skinsBox);
+			this.setStyle("fontSize",12);
+			
+		}
+	}
+}

@@ -1,0 +1,94 @@
+package src.events
+{
+	import flash.events.Event;
+	import flash.events.EventDispatcher;
+
+	public class EditorEvents extends Event
+	{
+		/**
+		 * 更新XY设置 
+		 */		
+		public static const UPDATE_SETTING:String        	= "UPDATE_SETTING";
+		/**
+		 * 更新舞台
+		 */		
+		public static const UPDATE_STAGE:String        		= "UPDATE_STAGE";
+		/**
+		 * 编辑某个UI 
+		 */		
+		public static const EDITUI:String					= "EDITUI";
+		/**
+		 * 删除UI
+		 */		
+		public static const REMOVE_UI:String				= "REMOVE_UI";
+		
+		/**
+		 *创建UI 
+		 */
+		public static const CREAT_UI:String                 = "CREAT_UI";
+		/**
+		 * 取消选择组件
+		 */		
+		public static const CANCEL_CHOICE:String			= "CANCEL_CHOICE";
+		/**
+		 * 编辑状态 
+		 */		
+		public static const EDIT_STATE:String				= "EDIT_STATE";
+		
+		/**
+		 *编辑皮肤 
+		 */
+		public static const EDIT_SKIN:String                = "EDIT_SKIN";
+		/**
+		 * 生成XML成功
+		 */		
+		public static const CREATE_XML_COMPLETE:String 	= "CREATE_XML_COMPLETE";
+		
+		/**
+		 * 生成代码成功
+		 */
+		public static const CREATE_CODE_COMPLETE:String = "CREATE_CODE_COMPLETE";
+		/**
+		 * 获取到新的主窗口
+		 */		
+		public static const GET_MAINWIN:String 				= "GET_MAINWIN";
+		
+		/**
+		 *获取组件皮肤属性 
+		 */
+		public static const GET_SKINATTRIBUTES:String       = "GET_SKINATTRIBUTES";
+		/**
+		 *获取组件属性，其中不包括皮肤属性 
+		 */		
+		public static const GET_COMPONENTSATTRIBUTES:String = "GET_COMPONENTSATTRIBUTES";
+		/**
+		 * 新建 
+		 */	
+		public static const NEW_BUILD:String 				= "NEW_BUILD";
+		/**
+		 *改变皮肤 
+		 */		
+		public static const CHANGE_SKIN:String              = "CHANGE_SKIN";
+		public static var dispathcer:EventDispatcher = new EventDispatcher();
+		
+		private var _data:*;
+		
+		private var _componentsAttributes:Object;
+		
+		public function EditorEvents(type:String,data:*=null,skinObject:Object = null)
+		{
+			super(type,data);
+			_data = data;
+			_componentsAttributes = skinObject;
+		}
+		
+		public function get data():*
+		{
+			return _data;
+		}
+		
+		public function get componentsAttributes():Object{
+			return _componentsAttributes;
+		}
+	}
+}

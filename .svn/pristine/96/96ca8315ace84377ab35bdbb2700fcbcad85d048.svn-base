@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<componentsAttributes>
+
+	<SimpleButton name="morn.core.components::SimpleButton">
+		<name>name,Input</name>
+		<x>x,Input</x>
+		<y>y,Input</y>
+		<width>width,Input</width>
+		<height>height,Input</height>
+		<skin>
+			<upState>upState</upState>
+			<overState>overState</overState>
+			<downState>downState</downState>
+		</skin>
+	</SimpleButton>
+
+	<TextInput name="morn.core.components::Label">
+		<name>name,Input</name>
+		<x>x,Input</x>
+		<y>y,Input</y>
+		<width>width,Input</width>
+		<height>height,Input</height>
+		<skin>
+		</skin>
+		<bold>bold,Boolean</bold>
+	</TextInput>
+
+	<Image name="morn.core.components::SimpleImage">
+		<name>name,Input</name>
+		<x>x,Input</x>
+		<y>y,Input</y>
+		<width>width,Input</width>
+		<height>height,Input</height>
+		<skin>
+		<image>image</image>
+		</skin>
+	</Image>
+
+</componentsAttributes>

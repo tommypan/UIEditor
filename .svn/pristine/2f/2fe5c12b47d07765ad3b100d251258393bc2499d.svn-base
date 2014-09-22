@@ -1,0 +1,524 @@
+package src.controls
+{
+	import containers.SDBasicsPane;
+	import containers.SDPopupWin;
+	
+	import controls.SDCommonButton;
+	import controls.SDLabelButton;
+	
+	import core.SDSprite;
+	
+	import flash.display.Sprite;
+	import flash.display.Stage;
+	import flash.events.Event;
+	import flash.events.MouseEvent;
+	import flash.geom.Point;
+	import flash.ui.Keyboard;
+	import flash.utils.ByteArray;
+	import flash.utils.getDefinitionByName;
+	import flash.utils.getQualifiedClassName;
+	
+	import interfaces.ILabel;
+	
+	import mx.containers.Canvas;
+	import mx.controls.Alert;
+	import mx.controls.ToggleButtonBar;
+	import mx.events.ItemClickEvent;
+	
+	import src.containers.StagePanel;
+	import src.events.ComponentEvent;
+	import src.events.EditorEvents;
+	import src.events.KeyEvent;
+	import src.managers.UIFactory;
+	import src.utils.KeyStateUtil;
+	
+	import utils.VisualUtils;
+
+	/**
+	 * 主舞台控制器 
+	 * @author yurs 
+	 * 
+	 */	
+	public class StageControls
+	{
+		private var stagePanel:StagePanel;
+		
+		/**
+		 * ui层 
+		 */		
+		private var uiLayer:Sprite;
+		
+		/**
+		 * 当前显示的ui层 
+		 */		
+		private var currentLayer:Sprite;
+		
+		/**
+		 * 主舞台和新组件选择
+		 */		
+		private var stageBar:ToggleButtonBar;
+		
+		/**
+		 * 组件
+		 */		
+		private var winUIArr:Array = [];
+		
+		/**
+		 * 当前的主容器 
+		 */
+		public var mainWin:SDPopupWin;
+		
+		/**
+		 * 当前操作的UI 
+		 */
+		private var currentUI:Sprite;
+		
+		/**
+		 * 当前鼠标下的UI
+		 */
+		private var mouseOverUI:Sprite;
+		
+		/**
+		 * 当前从组件栏选中的组件 
+		 */		
+		private var tempFrame:Canvas;
+		
+		/**
+		 * 当前选中的组件 
+		 */		
+		private var clickUI:Sprite;
+		
+		private var uiLastX:Number;
+		private var uiLastY:Number;
+		
+		public function StageControls(_stage:StagePanel)
+		{
+			stagePanel = _stage;
+			
+			uiLayer = stagePanel.uiLayer;
+			stageBar = stagePanel.toggleButtonBar;
+			currentLayer = uiLayer;
+			
+			firstAddMainWin();
+			addEvent();
+		}
+		
+		/**
+		 * 添加侦听 
+		 * 
+		 */		
+		private function addEvent():void
+		{
+			stagePanel.addEventListener(MouseEvent.MOUSE_DOWN,downCurUI);
+			stagePanel.parent.addEventListener(MouseEvent.MOUSE_UP,tempFrameUp,true);
+			stageBar.addEventListener(ItemClickEvent.ITEM_CLICK,stageBarChange);
+			
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.DOWN_UI,downUI);
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.DOWN_CUSTOMUI,downUI);
+			EditorEvents.dispathcer.addEventListener(KeyEvent.CANCEL_UI,keyEscCancelUI);
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.CREATE_CUSTOMUI,createCustomUI);
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.REMOVE_CUSTOMUI,removeCustomUI);
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.CREATEUI,function(e:ComponentEvent):void{createUI(e.data)});
+			EditorEvents.dispathcer.addEventListener(EditorEvents.REMOVE_UI,function(e:EditorEvents):void{removeUI(e.data)});
+			EditorEvents.dispathcer.addEventListener(EditorEvents.NEW_BUILD,newBuild);
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.IMPORT_CREATEUI,importCreateUI);
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.IMPORT_CREATE_CUSTOMUI,importCreateCustomUI);
+		}
+		
+		/**
+		 * 导入创建组件 
+		 * @param e
+		 * 
+		 */
+		private function importCreateUI(e:ComponentEvent):void
+		{
+			mouseOverUI = null;
+			createUI(e.data)
+		}
+		
+		/**
+		 * 导入 创建自定义组件
+		 * @param e
+		 * 
+		 */		
+		private function importCreateCustomUI(e:ComponentEvent):void
+		{
+			winUIArr.push({name:e.data[0].name,layer:e.data[0],ui:e.data[1]});
+			createUI({ui:e.data[1],
+					  name:e.data[1].name,
+					  parent:e.data[0],
+					  x:e.data[1].x,
+					  y:e.data[1].y,
+					  width:e.data[1].width,
+					  height:e.data[1].height});
+			
+			Canvas(stagePanel).rawChildren.addChild(e.data[0]);
+			stageBar.dataProvider = barNameArr(winUIArr);
+			stageBar.selectedIndex = 0;
+		}
+		
+		/**
+		 * 新建
+		 * @param e
+		 * 
+		 */		
+		private function newBuild(e:EditorEvents):void
+		{
+			EditorEvents.dispathcer.dispatchEvent(new ComponentEvent(ComponentEvent.REMOVE_ALLCUSTOMUI));
+			
+			for(var i:Number = 0;i < winUIArr.length;i++){
+				if(winUIArr[i].name == "主舞台"){
+					winUIArr[i].layer.visible = true;
+					winUIArr[i].layer.removeChild(winUIArr[i].ui);
+				}else{
+					winUIArr[i].layer.parent.removeChild(winUIArr[i].layer);
+				}
+			}
+			
+			winUIArr = [];
+			firstAddMainWin();
+		}
+		
+		/**
+		 * 创建新组件 
+		 * @param e
+		 * 
+		 */		
+		private function createCustomUI(e:ComponentEvent):void
+		{
+			/**新组件显示容器*/
+			var customLayer:Sprite = new Sprite();
+			customLayer.name = "customWin";
+			customLayer.y = stageBar.height+10;
+			Canvas(stagePanel).rawChildren.addChild(customLayer);
+			
+			/**基础空容器*/
+			var obj:Object = UIFactory.createUI(UIFactory.BasicsPane);
+			var customObj:Object = {ui:obj.ui,
+									name:obj.name,
+									parent:customLayer,
+									x:0,
+									y:0,
+									width:200,
+									height:100}
+			mouseOverUI = null;
+			createUI(customObj);
+			currentLayer.visible = false;
+			currentLayer = customLayer;
+			winUIArr.push({name:e.data,layer:customLayer,ui:obj.ui});
+			stageBar.dataProvider = barNameArr(winUIArr);
+			stageBar.selectedIndex = winUIArr.length-1;
+		}
+		
+		/**
+		 * 删除新组件 
+		 * @param e
+		 * 
+		 */		
+		private function removeCustomUI(e:ComponentEvent):void
+		{
+			for(var i:Number = 0;i < winUIArr.length;i++){
+				if(winUIArr[i]["name"] == e.data){
+					winUIArr.splice(i,1);
+				}
+			}
+			stageBar.dataProvider = barNameArr(winUIArr);
+		}
+		
+		private function barNameArr(arr:Array):Array
+		{
+			var tempArr:Array = [];
+			for(var i:Number = 0;i < arr.length;i++){
+				tempArr.push(arr[i]["name"]);
+			}
+			return tempArr;
+		}
+		
+		/**
+		 * 新组件切换 
+		 * @param e
+		 * 
+		 */		
+		private function stageBarChange(e:ItemClickEvent):void
+		{
+			for(var i:Number = 0;i < winUIArr.length;i++){
+				Sprite(winUIArr[i]["layer"]).visible = false;
+			}
+			currentLayer = winUIArr[e.index]["layer"];
+			Sprite(winUIArr[e.index]["layer"]).visible = true;
+		}
+		
+		/**
+		 * 点击拖动组件 
+		 * @param ary
+		 * 
+		 */
+		private function downUI(e:ComponentEvent):void
+		{
+			var name:String = UIFactory[e.data.label];
+			var obj:Object = UIFactory.createUI(name);
+			
+			if(obj == null){
+				obj = {};
+				for(var i:Number = 0;i < winUIArr.length;i++){
+					if(winUIArr[i]["name"] == e.data.label){
+						var uiClass:Class = getDefinitionByName(getQualifiedClassName(winUIArr[i]["ui"])) as Class;
+						var ui:Sprite = new uiClass();
+						obj.ui = ui
+						obj.name = ui.name;
+					}
+				}
+			}
+			clickUI = obj.ui;
+			clickUI.name = obj.name;
+			
+			tempFrame = new Canvas();
+			tempFrame.name = obj.name;
+			tempFrame.graphics.beginFill(0x41415D);
+			tempFrame.graphics.lineStyle(5,0x412E56);
+			tempFrame.graphics.drawRect(0,0,clickUI.width,clickUI.height);
+			tempFrame.graphics.endFill();
+			stagePanel.parent.parent.addChild(tempFrame);
+			tempFrame.alpha = 0.5
+			var point:Point = e.data.parent.localToGlobal(new Point(e.data.x,e.data.y));
+			tempFrame.x = point.x;
+			tempFrame.y = point.y;
+			tempFrame.startDrag();
+			tempFrame.mouseEnabled = false;
+		}
+		
+		private function clone(source:Object):*
+		{
+			var myBA:ByteArray = new ByteArray();
+			myBA.writeObject(source);
+			myBA.position = 0;
+			return(myBA.readObject());
+		}
+		
+
+		
+		/**
+		 * 鼠标抬起 
+		 * @param e
+		 * 
+		 */	
+		private function tempFrameUp(e:MouseEvent):void
+		{
+			if(!tempFrame)return;
+			if(mouseOverUI){
+				mouseOverUI.filters = [];
+				var point:Point = mouseOverUI.globalToLocal(new Point(tempFrame.x,tempFrame.y));
+				var obj:Object = {ui:clickUI,
+								  name:clickUI.name,
+								  x:point.x,
+								  y:point.y};
+				createUI(obj);
+				winUIArr.push({name:clickUI.name,layer:clickUI.parent,ui:clickUI});
+			}
+			tempFrame.stopDrag();
+			stagePanel.parent.parent.removeChild(tempFrame);
+			tempFrame = null;	
+		}
+		
+		/**
+		 * 首次进入创建主容器 
+		 */		
+		private function firstAddMainWin():void
+		{
+			var obj:Object = UIFactory.createUI(UIFactory.PopupWin);
+			mainWin = obj.ui;
+			mainWin.x = 50,mainWin.y = 50;
+			mainWin.name = obj.name;
+			uiLayer.addChild(mainWin);
+			
+			mainWin.addEventListener(MouseEvent.MOUSE_DOWN,downCurUI);
+			mainWin.addEventListener(MouseEvent.MOUSE_UP,upCurUI);
+			mainWin.addEventListener(MouseEvent.MOUSE_MOVE,overCurUI);
+			
+			winUIArr.push({name:"主舞台",layer:uiLayer,ui:mainWin});
+			stageBar.dataProvider = barNameArr(winUIArr);
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.GET_MAINWIN,winUIArr));
+		}
+		
+		/**
+		 * 点击某个组件 
+		 */		
+		private function downCurUI(e:MouseEvent):void
+		{
+			if(currentUI)currentUI.filters = [];
+			if(e.currentTarget is Object && e.currentTarget.name != "EditPanel"){
+				currentUI = e.currentTarget as Sprite;
+				EditControls.addStartEdit(currentUI,{x:currentUI.x,y:currentUI.y});
+				uiLastX = currentUI.x;
+				uiLastY = currentUI.y;
+				currentUI.startDrag();
+				e.currentTarget.addEventListener(MouseEvent.MOUSE_UP,upCurUI);				
+				stagePanel.parent.addEventListener(Event.ENTER_FRAME,mouseMove);
+				VisualUtils.redFilter(currentUI);
+				EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.EDITUI,currentUI));
+				e.stopImmediatePropagation();
+			}else{
+				currentUI = null;
+				EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.CANCEL_CHOICE,currentUI));
+			}
+		}
+		
+		/**
+		 * 按esc取消组件 
+		 * @param e
+		 * 
+		 */		
+		private function keyEscCancelUI(e:KeyEvent):void
+		{
+			if(currentUI)currentUI.filters = [];
+			currentUI = null;
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.CANCEL_CHOICE,currentUI));
+		}
+		
+		/**
+		 * 从某个组件抬起  
+		 * @param e
+		 * 
+		 */
+		private function upCurUI(e:MouseEvent = null):void
+		{
+			e.stopPropagation();
+			if(currentUI){
+				currentUI.stopDrag();
+				
+				if(uiLastX != currentUI.x && uiLastY != currentUI.y){
+					EditControls.addEndEdit(currentUI,{x:currentUI.x,y:currentUI.y});
+				}
+				
+				e.currentTarget.removeEventListener(MouseEvent.MOUSE_UP,upCurUI);		
+				stagePanel.parent.removeEventListener(Event.ENTER_FRAME,mouseMove);
+			}
+		}
+		
+		/**
+		 * 鼠标移动时时更新 
+		 * @param e
+		 * 
+		 */		
+		private function mouseMove(e:Event):void
+		{
+			trace(currentUI["name"],currentUI["x"],currentUI.y,"diercishuchu",currentUI.parent.name,currentUI.parent.x,currentUI.parent.y);
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.UPDATE_SETTING,currentUI));
+		}
+		
+		/**
+		 * 鼠标移上某个组件
+		 * @param e
+		 * 
+		 */		
+		private function overCurUI(e:MouseEvent):void
+		{
+			e.stopImmediatePropagation();
+			if(!tempFrame)return;
+			if(mouseOverUI)mouseOverUI.filters = [];
+			if(e.currentTarget.name == "win"){
+				if(mainWin.mouseX > mainWin.bottomPane.x && mainWin.mouseY > mainWin.bottomPane.y &&
+					mainWin.mouseX < mainWin.mainPane.width+mainWin.bottomPane.x && 
+					mainWin.mouseY < mainWin.height){
+					mouseOverUI = mainWin.bottomPane;
+					VisualUtils.highLightFilter(mouseOverUI);
+				}else if(mainWin.mouseX > mainWin.mainPane.x && mainWin.mouseY > mainWin.mainPane.y &&
+					mainWin.mouseX < mainWin.mainPane.width+mainWin.mainPane.x && 
+					mainWin.mouseY < mainWin.mainPane.height+mainWin.mainPane.y){
+					mouseOverUI = mainWin.mainPane;
+					VisualUtils.highLightFilter(mouseOverUI);
+				}
+			}else{
+				mouseOverUI = e.currentTarget as Sprite;
+				mainWin.removeEventListener(MouseEvent.MOUSE_MOVE,overCurUI);
+				VisualUtils.highLightFilter(mouseOverUI);
+			}
+		}
+		
+		/**
+		 * 创建组件 
+		 * @param e
+		 * 
+		 */		
+		private function createUI(obj:Object):void
+		{
+			var ui:Sprite = obj.ui;
+			
+			if(!mainWin){
+				if(obj.name != "win"){
+					Alert.show("主容器不存在,请创建主容器");
+					return;
+				}else{
+					uiLayer.addChild(ui);
+					mainWin = ui as SDPopupWin;
+					EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.GET_MAINWIN,winUIArr));
+				}
+			}else if(mainWin && obj.name == "win"){
+				Alert.show("主容器已经存在!!不要开玩喜!!");
+				return;
+			}else{
+				if(mouseOverUI){
+					if(mouseOverUI.name == "bottomPane"){
+						if(ui is SDCommonButton){
+							mainWin.addChildBottomButton(ui as SDCommonButton);
+						}else{
+							Alert.show("只能放按钮!!");
+						}
+					}else{
+						mouseOverUI.addChild(ui);
+						ui.x = obj.x
+						ui.y = obj.y
+							
+						EditControls.addStartEdit(ui,{parent:ui.parent});
+						EditControls.addEndEdit(ui,{parent:ui.parent});
+					}
+				}else{
+					if(obj.hasOwnProperty("parent"))obj.parent.addChild(ui);
+					if(obj.hasOwnProperty("x"))ui.x = obj.x;
+					if(obj.hasOwnProperty("y"))ui.y = obj.y;
+					if(obj.hasOwnProperty("width"))ui.width = obj.width;
+					if(obj.hasOwnProperty("height"))ui.height = obj.height;
+					
+					if(obj.hasOwnProperty("label"))ui["label"] = obj.label;
+					if(obj.hasOwnProperty("labelPlacement"))ui["labelPlacement"] = obj.labelPlacement;
+					if(obj.hasOwnProperty("fontSize"))ui["fontSize"] = obj.fontSize;
+					if(obj.hasOwnProperty("fontFamily"))ui["fontFamily"] = obj.fontFamily;
+					if(obj.hasOwnProperty("color"))ui["color"] = obj.color;
+					if(obj.hasOwnProperty("isBold"))ui["isBold"] = obj.isBold;
+					if(obj.hasOwnProperty("textPadding"))ui["textPadding"] = obj.textPadding;
+					if(obj.hasOwnProperty("text"))ui["text"] = obj.text;
+					if(obj.hasOwnProperty("editable"))ui["editable"] = obj.editable;
+				}
+			}
+			
+			ui.name = obj.name;
+			ui.addEventListener(MouseEvent.MOUSE_DOWN,downCurUI);
+			
+			/**是容器才可以放!*/
+			if(ui is SDBasicsPane){
+				ui.addEventListener(MouseEvent.MOUSE_OVER,overCurUI);
+				ui.addEventListener(MouseEvent.MOUSE_OUT,function():void{
+					mainWin.addEventListener(MouseEvent.MOUSE_MOVE,overCurUI);});
+			}
+		}
+		
+		/**
+		 * 移除UI 
+		 */		
+		private function removeUI(ui:Sprite):void
+		{
+			if(ui.parent is SDBasicsPane){
+				(ui.parent as SDBasicsPane).removeChild(ui);
+			}else{
+				ui.parent.removeChild(ui);
+			}
+			
+			if(ui == currentUI){
+				if(ui is SDPopupWin){
+					mainWin = null;
+				}
+				currentUI = null;
+			}
+		}
+	}
+}

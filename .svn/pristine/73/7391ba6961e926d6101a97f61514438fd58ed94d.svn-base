@@ -1,0 +1,23 @@
+package org.pool.interfaces
+{
+	public interface IPool
+	{
+		public function IPool();
+		
+		/**
+		 *从对象池取出对象 
+		 * @return 对象
+		 * 
+		 */		
+		function borrowFromPool():Object;
+		
+		/**
+		 *像对象池放回对象 
+		 * @param value 对象
+		 * 
+		 */		
+		function returnToPool(value:Object):void;
+		
+		
+	}
+}

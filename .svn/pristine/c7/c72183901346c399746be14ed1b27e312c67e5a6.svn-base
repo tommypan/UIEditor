@@ -1,0 +1,216 @@
+package src.controls
+{
+	import flash.events.MouseEvent;
+	
+	import mx.containers.Canvas;
+	import mx.containers.HBox;
+	import mx.containers.Panel;
+	import mx.containers.VBox;
+	import mx.controls.Button;
+	import mx.controls.Label;
+	import mx.controls.TextArea;
+	
+	import src.containers.ComponentPanel;
+	import src.events.ComponentEvent;
+	import src.events.EditorEvents;
+	
+	import utils.EventArgExtend;
+
+	/**
+	 * 组件栏控制器 
+	 * @author yurs
+	 * 
+	 */	
+	public class ComponentControls
+	{
+		private var componentPanel:ComponentPanel;
+		
+		private var uiArr:Array = [];
+		private var originalBox:Canvas;
+		private var newMyBox:VBox;
+		
+		private var newComponent:Label;
+		private var panel:Panel;
+		private var textArea:TextArea;
+		private var enter:Button;
+		private var cancel:Button;
+		
+		
+		public function ComponentControls(_componentPanel:ComponentPanel)
+		{
+			componentPanel = _componentPanel;
+			
+			originalBox = componentPanel.originalBox;
+			newMyBox = componentPanel.newMyBox;
+			newComponent = componentPanel.newComponent;
+			uiArr = componentPanel.uiArr;
+			
+			panel = componentPanel.panel;
+			textArea = componentPanel.textArea;
+			enter = componentPanel.enter;
+			cancel = componentPanel.cancel;
+			
+			createList(uiArr);
+			
+			addEvent();
+		}
+		
+		/**
+		 * 添加侦听事件 
+		 * 
+		 */
+		private function addEvent():void
+		{
+			enter.addEventListener(MouseEvent.CLICK,enterClick);
+			cancel.addEventListener(MouseEvent.CLICK,cancelClick);
+			newComponent.addEventListener(MouseEvent.CLICK,newCustomComponent);
+			
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.IMPORT_CREATE_CUSTOMBTN,createCustomBtn);
+			EditorEvents.dispathcer.addEventListener(ComponentEvent.REMOVE_ALLCUSTOMUI,removeAllCustomUI);
+		}
+		
+		/**
+		 * 删除全部自定义组件按钮 
+		 * @param e
+		 * 
+		 */		
+		private function removeAllCustomUI(e:ComponentEvent):void
+		{
+			var length:Number = newMyBox.numChildren-1;
+			for(var i:Number = 0;i < length;i++){
+				newMyBox.removeChildAt(1);
+			}
+		}
+		
+		/**
+		 * 创建自定义组件按钮
+		 * @param e
+		 */		
+		private function createCustomBtn(e:ComponentEvent):void
+		{
+			textArea.text = e.data;
+			enterClick();
+		}
+		
+		/**
+		 * 显示自定义组件窗口 
+		 * @param e
+		 * 
+		 */
+		private function newCustomComponent(e:MouseEvent):void
+		{
+			componentPanel.parent.addChild(panel);
+			panel.visible = true;
+		}
+		
+		/**
+		 * 确定 
+		 * @param e
+		 * 
+		 */
+		private function enterClick(e:MouseEvent = null):void
+		{
+			close();
+			if(e)EditorEvents.dispathcer.dispatchEvent(new ComponentEvent(ComponentEvent.CREATE_CUSTOMUI,textArea.text));
+			var item:HBox = getCustomComponentBox(textArea.text);
+			newMyBox.addChild(item);
+			item.x = 20;
+		}
+		
+		/**
+		 * 获取自定义组件容器 
+		 * @param _name
+		 * @return 
+		 * 
+		 */		
+		private function getCustomComponentBox(_name:String):HBox
+		{
+			var item:HBox = new HBox();
+			var button:Button = new Button();
+			button.label = _name;
+			button.width = 100;
+			button.height = 22;
+			var remove:Button = new Button();
+			remove.name = _name;
+			remove.label = "删除";
+			remove.width = 50;
+			remove.height = 22;
+			item.addChild(button);
+			item.addChild(remove);
+			
+			button.addEventListener(MouseEvent.MOUSE_DOWN,customComponentDown)
+			remove.addEventListener(MouseEvent.CLICK,EventArgExtend.create(customComponentRemove,item));
+			return item;
+		}
+		
+		/**
+		 * 拖动自定义组件 
+		 * @param e
+		 * 
+		 */		
+		private function customComponentDown(e:MouseEvent):void
+		{
+			EditorEvents.dispathcer.dispatchEvent(new ComponentEvent(ComponentEvent.DOWN_CUSTOMUI,e.currentTarget));
+		}
+		
+		/**
+		 * 删除自定义组件
+		 * @param e
+		 * 
+		 */		
+		private function customComponentRemove(e:MouseEvent,item:HBox):void
+		{
+			item.parent.removeChild(item);
+			EditorEvents.dispathcer.dispatchEvent(new ComponentEvent(ComponentEvent.REMOVE_CUSTOMUI,e.currentTarget.name));
+		}
+		
+		/**
+		 * 取消 
+		 * @param e
+		 * 
+		 */		
+		private function cancelClick(e:MouseEvent):void
+		{
+			close();
+		}
+		
+		/**
+		 * 关闭创建窗口
+		 * 
+		 */		
+		private function close():void
+		{
+			panel.visible = false;
+		}
+		
+		/**
+		 * 创建组件列表 
+		 * @param ary
+		 * 
+		 */
+		private function createList(ary:Array):void
+		{
+			for(var i:int=0;i<ary.length;i++){
+				var button:Button = new Button();
+				button.label = ary[i];
+				button.width = 100;
+				button.height = 22;
+				originalBox.addChild(button);
+				button.x = 30;
+				button.y = i*(button.height+5);
+				button.addEventListener(MouseEvent.MOUSE_DOWN,originalDown);
+			}
+			newMyBox.y = ary.length*22+100;
+		}
+		
+		/**
+		 * 点击拖动组件 
+		 * @param ary
+		 * 
+		 */
+		private function originalDown(e:MouseEvent):void
+		{
+			EditorEvents.dispathcer.dispatchEvent(new ComponentEvent(ComponentEvent.DOWN_UI,e.target));
+		}
+	}
+}

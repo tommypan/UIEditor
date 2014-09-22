@@ -1,0 +1,78 @@
+package src
+{
+	import flash.display.SimpleButton;
+	import flash.display.Sprite;
+	import flash.events.Event;
+	import flash.net.URLLoader;
+	import flash.net.URLRequest;
+	import flash.text.TextField;
+	
+	import morn.core.components.Label;
+	import morn.editor.core.IComponent;
+	
+	import mx.containers.Canvas;
+	
+	import org.loader.LoaderManager;
+	
+	import src.controls.KeyControl;
+	import src.controls.XMLControls;
+	import src.utils.KeyStateUtil;
+
+	public class MainEditor extends Canvas
+	{
+		/**
+		 * 预览模式 
+		 */		
+		public static var isPreviewMode:Boolean = false;
+		
+		/**
+		 * 编辑模式 
+		 */		
+		public static var isEditState:Boolean = false;
+		
+		/**
+		 *编辑皮肤 
+		 */
+		public static var isEditSkin:Boolean = false;
+		/**
+		 * 主编辑界面 
+		 */		
+		private var editPanel:EditPanel;
+		
+		/**
+		 * 菜单栏 
+		 */		
+		private var menuPanel:MenuPanel;
+		
+		private var xmlControls:XMLControls;
+		private var keyControl:KeyControl;
+		private var isInto:Boolean = false;
+		private	var loader:URLLoader = new URLLoader();
+		public function MainEditor()
+		{
+			LoaderManager.getInstance().getModualSwf("res/tanxian.swf",SWFonComplete);
+		}
+		
+		private function SWFonComplete():void
+		{
+			loader.load( new URLRequest("res/ComponentsAttributes.xml"));
+			loader.addEventListener(Event.COMPLETE,XMLonComplete);
+		
+		}
+		
+		protected function XMLonComplete(event:Event):void
+		{
+			var xml:XML = new XML(event.target.data);
+			xmlControls = new XMLControls();
+			keyControl = new KeyControl();
+			
+			menuPanel = new MenuPanel();
+			addChild(menuPanel);
+			
+			editPanel = new EditPanel(xml);
+			addChild(editPanel);
+			editPanel.y = 50;
+			
+		}
+	}
+}

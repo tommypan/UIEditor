@@ -1,0 +1,15 @@
+package org.cacher
+{
+	/**
+	 * 这个类主要是以后通过SO方法做一些缓存（一般就存储String等较简单的类型）
+	 * 思路有，以后有时间写，现在先空出占位
+	 *@author as3Lover_ph
+	 *@date 2013-3-6
+	 */
+	public class Cookie
+	{
+		public function Cookie()
+		{
+		}
+	}
+}

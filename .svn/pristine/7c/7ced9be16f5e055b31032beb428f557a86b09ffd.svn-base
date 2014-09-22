@@ -1,0 +1,55 @@
+package src.containers
+{
+	import mx.containers.Canvas;
+	import mx.containers.HBox;
+	import mx.controls.Button;
+	import mx.controls.TextArea;
+	
+	import src.controls.MenuControls;
+
+	public class MenuPanel extends HBox
+	{
+		public var exportCodeBtn:Button;
+		public var importXMLBtn:Button;
+		public var exportXMLBtn:Button;
+		public var helpBtn:Button;
+		public var newBuild:Button;
+		
+		public var codePanel:CodePanel;
+		/**
+		 * 菜单控制器 
+		 */		
+		private var menuControls:MenuControls;
+		
+		public function MenuPanel()
+		{
+			this.setStyle("fontSize",12);
+			
+			exportCodeBtn = new Button();
+			exportCodeBtn.label = "导出代码";
+			exportCodeBtn.name = "exportCode";
+			addChild(exportCodeBtn);
+			
+			importXMLBtn = new Button();
+			importXMLBtn.label = "导入XML";
+			importXMLBtn.name = "import";
+			addChild(importXMLBtn);
+			
+			exportXMLBtn = new Button();
+			exportXMLBtn.label = "导出XML";
+			exportXMLBtn.name = "export";
+			addChild(exportXMLBtn);
+			
+			
+			codePanel = new CodePanel();
+			
+			helpBtn = new Button();
+			helpBtn.label = "帮助";
+			addChild(helpBtn);
+			
+			newBuild = new Button();
+			newBuild.label = "新建";
+			addChild(newBuild);
+		}
+	}
+}

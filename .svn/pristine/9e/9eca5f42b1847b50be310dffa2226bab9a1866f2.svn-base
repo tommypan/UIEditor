@@ -1,0 +1,91 @@
+package src
+{
+	
+	import flash.display.Loader;
+	import flash.events.Event;
+	import flash.net.URLLoader;
+	import flash.net.URLRequest;
+	import flash.net.dns.AAAARecord;
+	
+	import mx.containers.Canvas;
+	import mx.containers.HBox;
+	
+	import org.loader.LoaderManager;
+	import org.utils.ClassManager;
+	
+	import src.containers.ComponentPanel;
+	import src.containers.ProjectLibraries;
+	import src.containers.SettingPanel;
+	import src.containers.StagePanel;
+	import src.controls.ComponentControls;
+	import src.controls.EditControls;
+	import src.controls.ProjectControls;
+	import src.controls.SettingControls;
+	import src.controls.StageControls;
+	import src.controls.TensileControls;
+
+	public class EditPanel extends Canvas
+	{
+		/**
+		 * 组件选择栏 
+		 */		
+		private var componentPanel:ComponentPanel; 
+		
+		/**
+		 * 主舞台 
+		 */		
+		private var stagePanel:StagePanel;
+		
+		/**
+		 * 属性栏 
+		 */		
+		private var settingPanel:SettingPanel;
+		
+		private var projectLibraries:ProjectLibraries;
+		/**
+		 * 主舞台控制器 
+		 */		
+		private var stageControls:StageControls;
+		
+		/**
+		 * 组件栏控制器 
+		 */		
+		private var componentControls:ComponentControls;
+		
+		/**
+		 * 组件栏控制器 
+		 */		
+		private var settingControls:SettingControls;
+		private var projectControls:ProjectControls;
+		private var editStateControls:TensileControls;
+		private var editControls:EditControls;
+		private	var loader:URLLoader = new URLLoader();
+		
+		public function EditPanel(xml:XML)
+		{
+			componentPanel = new ComponentPanel();
+			addChild(componentPanel);
+			
+			stagePanel = new StagePanel();
+			addChild(stagePanel);
+			stagePanel.x = 190;
+			
+			settingPanel = new SettingPanel();
+			addChild(settingPanel);
+			settingPanel.x = EditorConfig.stagePanelWidth+240;
+			
+			projectLibraries = new ProjectLibraries();
+			addChild(projectLibraries);
+			projectLibraries.x = settingPanel.x + 150;
+			
+			projectControls = new ProjectControls(projectLibraries);
+			
+			stageControls = new StageControls(stagePanel);
+			
+			settingControls = new SettingControls(settingPanel,xml);
+			componentControls = new ComponentControls(componentPanel);
+			editStateControls = new TensileControls();
+			editControls = new EditControls();
+		}
+	}
+}

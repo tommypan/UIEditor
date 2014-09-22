@@ -1,0 +1,170 @@
+package src.controls
+{
+	import core.SDSprite;
+	
+	import flash.display.Sprite;
+	import flash.utils.getQualifiedClassName;
+	
+	import src.events.CodeEvent;
+	import src.events.EditorEvents;
+	import src.models.XMLModel;
+	
+	/**
+	 * 导出成XML 
+	 * @author yurs
+	 * 
+	 */	
+	public class XMLControls
+	{
+		private var xmlModle:XMLModel;
+		
+		/**
+		 * 当前界面的代码
+		 */
+		private var CodeStr:String;
+		/**
+		 * 当前界面的XML
+		 */		
+		private var XMLStr:String;
+		
+		/**
+		 * 导入的XML
+		 */		
+		private var importXMLStr:String;
+		
+		private var mainWin:Sprite;
+		
+		public function XMLControls(_xmlModel:XMLModel)
+		{
+			xmlModle = _xmlModel;
+			addListener();
+		}
+		
+		private function addListener():void
+		{
+			EditorEvents.dispathcer.addEventListener(CodeEvent.CREAT_CODE,exportCode);
+			EditorEvents.dispathcer.addEventListener(CodeEvent.CREATE_XML,exportXML);
+			//			EditorEvents.dispathcer.addEventListener(CodeEvent.IMPORT_XML,importXML);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.GET_SKINATTRIBUTES,getSkinUrl);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.GET_COMPONENTSATTRIBUTES,getComponetnesAttributes);
+		}
+		
+		protected function getComponetnesAttributes(event:EditorEvents):void
+		{
+			xmlModle.componentsAtrributes = event.data;
+		}
+		
+		protected function getSkinUrl(event:EditorEvents):void
+		{
+			xmlModle.skinUrl = event.data;
+		}		
+		
+		//		/**
+		//		 * 获取主舞台 
+		//		 * @param e
+		//		 * 
+		//		 */		
+		//		private function getMainWin(e:EditorEvents):void
+		//		{
+		//			componentArr = e.data;
+		//			mainWin = componentArr[0]["ui"];
+		//		}
+		
+		protected function exportCode(event:CodeEvent):void
+		{
+			var importStr:String = "import morn.core.components.";
+			//判断是否已经导入了加载管理器，如果导入就不用再次导入，如果还没导入那么就导入
+			var importloaderManger:Boolean = false;
+			//判断是否已经有获取图片的bitmap了，如果有就申明一个，如果没有那么就不用再次申明
+			var loadermangerBitmap:Boolean = false;
+			//判断全局变量是否已经导入，里面装载的是一些判断
+			var importVariableObject:Object = new Object();
+			
+			var CodeXML:XML = new XML(creatXMLString(event));
+			CodeStr = "";
+			CodeStr += "package { " + "\n";
+			//导入类的代码段
+			var importString:String = "import flash.display.Sprite;" + "\n";
+			//类里面全局变量的代码段，即构造函数上面定义的那些变量
+			var variableString:String = "";
+			//构造函数里面创建组件的代码段
+			var compoentsString:String = ""; 
+			for(var i:int =0; i<CodeXML.children().length();i++) {
+				
+				//单个组件的属性XML
+				var componentXMl:XML = CodeXML.children()[i];
+				if(importVariableObject[componentXMl.name().localName] == null) {
+					importString += importStr  + componentXMl.name().localName + ";" + "\n";
+					importVariableObject[componentXMl.name().localName] = true;
+				}
+				variableString += "public var " + componentXMl.@name + ":" +
+					componentXMl.name().localName + " = " +	"new "  +
+					componentXMl.name().localName + "()" + ";" +"\n";
+				//遍历单个组件的属性
+				var attNamesList:XMLList = componentXMl.@*;
+				for (var j:int = 0; j < attNamesList.length(); j++)
+				{ 
+					if(attNamesList[j].name() != "name") {
+						compoentsString += componentXMl.@name+ "."+ attNamesList[j].name() + "=" + attNamesList[j] + ";" + "\n";
+					}
+				}
+				
+				//遍历组件的皮肤属性，然后依次加载再添加到相应的UI组件上面
+				//					if(!loadermangerBitmap) {
+				//						importString +="import flash.display.Bitmap;\n";
+				//						variableString += "public var bitmap:Bitmap;\n";
+				//						loadermangerBitmap = true;
+				//					}
+				//					compoentsString += "LoaderManager.getInstance().getBitmap("+'"' + CodeXML.children()[i].attribute(skin) +'"'+ ",bitmap);\n";
+				//					compoentsString += componentXMl.@name + "."+ skin + "=" + "bitmap;\n";
+				//					if(!importloaderManger) {
+				//						importString +="import org.loader.LoaderManager;";
+				//						importloaderManger = true;
+				//					} 
+				compoentsString += "this.addChild(" + componentXMl.@name + ")" + ";" + "\n";
+			}
+			CodeStr += importString;
+			CodeStr += "public class " + "Code" + " extends Sprite { " + "\n" ;
+			CodeStr += variableString;
+			CodeStr	+"public function " + "Code" + "() {" + "\n";
+			CodeStr += compoentsString;
+			CodeStr += "}" + "\n" + "}" + "\n" + "}";
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.CREATE_CODE_COMPLETE,CodeStr));
+		}
+		
+		/**
+		 * 获取编码 
+		 * @param e
+		 * 
+		 */		
+		public function exportXML(e:CodeEvent):void
+		{
+			var XMLString:String = creatXMLString(e);
+			EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.CREATE_XML_COMPLETE,XMLStr));
+		}
+		
+		private function creatXMLString(e:CodeEvent):String {
+			XMLStr = "";
+			xmlModle.componentArr = e.data;
+			
+			XMLStr += "<UIMeditor>\n";
+			for(var id:* in xmlModle.componentArr){
+				
+				XMLStr += "<"+getQualifiedClassName(xmlModle.componentArr[id]).split("::")[1] + " ";
+				
+				for(var skin:String in xmlModle.skinUrl[id]) {
+					
+					XMLStr += skin + "=" +'"'+ xmlModle.skinUrl[id][skin] +'"';
+				}
+				
+				for each(var attributes:Array in xmlModle.componentsAtrributes[getQualifiedClassName(xmlModle.componentArr[id])]) {
+					XMLStr += attributes[0] + "=" +'"' + xmlModle.componentArr[id][attributes[0]] + '"';
+				}
+				XMLStr += ">";
+				XMLStr += "</"+getQualifiedClassName(xmlModle.componentArr[id]).split("::")[1]+">\n";
+			}
+			XMLStr += "</UIMeditor>"
+			return XMLStr;
+		}
+	}
+}

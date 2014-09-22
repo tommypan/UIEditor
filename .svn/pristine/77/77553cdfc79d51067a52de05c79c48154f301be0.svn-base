@@ -1,0 +1,71 @@
+package src.managers
+{
+	import flash.display.Bitmap;
+	import flash.display.BitmapData;
+	import flash.display.DisplayObject;
+	import flash.display.Sprite;
+	
+	import morn.core.components.Label;
+	import morn.core.components.SimpleButton;
+	import morn.core.components.SimpleImage;
+	import morn.core.utils.BitmapUtils;
+	
+	import org.utils.ClassManager;
+
+	
+	public class UIFactory
+	{
+		
+		private static var labelNumber:int;
+		private static var simpleButtonNumber:int;
+		private static var simpleImageNumber:int;
+		/**
+		 * 创建UI 
+		 */		
+		public static function createUI(type:String,name:String = ""):Sprite
+		{
+			var creatUI:Sprite;
+			switch(type)
+			{
+				case "Label":
+					creatUI = new Label("标签");
+					if(labelNumber != 0) {
+						creatUI.name = "label" + labelNumber;
+					} else {
+						creatUI.name = "label";
+					}
+					labelNumber++;
+					break;
+				case "SimpleButton":
+					var simpleButton:SimpleButton = new SimpleButton();
+					var buttonBitmapclips:Vector.<BitmapData> = BitmapUtils.createClips(ClassManager.createBitmapDataInstance("button"),1,3);
+					simpleButton.upState = new Bitmap(buttonBitmapclips[0]);
+					simpleButton.overState = new Bitmap(buttonBitmapclips[1]);
+					simpleButton.downState = new Bitmap(buttonBitmapclips[2]);
+					creatUI = simpleButton;
+					if(simpleButtonNumber != 0) {
+						creatUI.name = "simpleButton" + simpleButtonNumber;
+					} else {
+						creatUI.name = "simpleButton";
+					}
+					simpleButtonNumber++;
+					break;
+				case "SimpleImage":
+					var image:SimpleImage = new SimpleImage();
+					image.image = new Bitmap(ClassManager.createBitmapDataInstance("tab"));
+					creatUI = image;
+					if(simpleImageNumber != 0) {
+						creatUI.name = "simpleImage" + simpleImageNumber;
+					} else {
+						creatUI.name = "simpleImage";
+					}
+					simpleImageNumber++;
+					break;
+				
+				default:
+					return null;
+			}
+			return creatUI;
+		}
+	}
+}

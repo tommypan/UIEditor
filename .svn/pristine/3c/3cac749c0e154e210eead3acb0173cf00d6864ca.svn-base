@@ -1,0 +1,13 @@
+package org.ui
+{
+	/**
+	 *@author as3Lover_ph
+	 *@date 2013-3-2
+	 */
+	public class ChangeViewVo
+	{
+		public function ChangeViewVo()
+		{
+		}
+	}
+}

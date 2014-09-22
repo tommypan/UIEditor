@@ -1,0 +1,23 @@
+package org.loader
+{
+	/**
+	 * 类似于Enum
+	 *@author as3Lover_ph
+	 *@date 2013-1-22
+	 */
+	public class LoaderType
+	{
+		public static const XML :String = "xml";
+		public static const CQUPT :String = "cqupt";
+		public static const BITMAP :String = "bitmap";
+		public static const MOVIECLIP :String = "movieClip";
+		public static const MODUAL_SWF_RESOURCE :String = "modualSwfResource";
+		
+		public function LoaderType()
+		{
+		}
+		
+		
+		
+	}
+}

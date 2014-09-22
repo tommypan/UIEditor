@@ -1,0 +1,444 @@
+package org.loader
+{
+	import flash.display.Bitmap;
+	import flash.display.BitmapData;
+	import flash.display.MovieClip;
+	import flash.errors.IllegalOperationError;
+	import flash.net.SharedObject;
+	import flash.sensors.Accelerometer;
+	import flash.utils.ByteArray;
+	import flash.utils.Dictionary;
+	
+	import org.cacher.SmartSourceCacher;
+	import org.display.BitmapCacher;
+	import org.display.BitmapMovie;
+	
+	
+	/**
+	 * 提供简单方便的加载方法接口
+	 * 管理正在执行的加载工具
+	 * 管理资源缓存与释放
+	 * 限制同时在执行的加载工具数量
+	 * <to do>梦幻是自定义数据不是加密后的xml，加载后取其二进制流写入byteArray后读出信息（估计得写个编码解码器了）
+	 * <to do> 基于资源管理器的ui搭建(轻量级游戏可以不需要)
+	 * <to do> changeSwfToBitmapMovie()	对很小的位图进行缩放，渲染效果不及原生movieClip
+	 * bitmap测试内存释放，Co，So通过；movieClip测试内存释放，Co，So，动画播放通过；资源模块加载以及进度展示通过；xml加载缓存通过；测试充分展现二进制储存占用内存小的好处
+	 * <tendency>一个文件若先二进制加载然后才加载，这样一般只是对二进制加载进行进度显示
+	 * <tendency>不是所有资源都要先加载为二进制好，比如模块资源完全不需要先加载为二进制，直接用displayLoader更好
+	 * <tendency> 其实在一般游戏里面就只有一个timer管理渲染及其跑图，业务逻辑。不过对时间要求高时就是通过心跳机制
+	 * <tendency> 游戏不管玩多久，其内存做多也只是维持在一个水平，策略问题。包括即时跑图加载的地图，在一定范围外时也会dispose掉
+	 * <tendency> 当会重复刷同样的怪时，要将其存入内存，其它的就没必要。然后在一张地图时，npc资源只是简单的移除掉，而后切换地图将其统一释放
+	 * @author as3Lover_ph
+	 *@date 2013-1-22
+	 */
+	public class LoaderManager
+	{
+		private static var _instance :LoaderManager;
+		
+		/**
+		 *显示加载器 
+		 */		
+		private var _displayLoader :DisplayLoader;
+		
+		/**
+		 *非显示加载器 ,一般用二进制
+		 */		
+		private var _bytesLoader :BytesLoader;
+		
+		/**资源库资源,仅为一个指向*/
+		private var _cacher:SmartSourceCacher;
+		
+		/**对于已经在加载到加载域中的资源，此资源存储true或者false*/
+		private var _swfPackDic :Dictionary;
+		
+		/**不能实例化此类，仅为一个指向*/
+		private var _sharedObj :SharedObject;
+		
+		/**二进制加载链队列实例*/
+		private var _bytesLoaderQueue :LoaderQueue;
+		
+		/**显示加载链队列实例*/
+		private var _displayLoaderQueue :LoaderQueue;
+		
+		
+		public function LoaderManager(singltonEnforcer:SingltonEnforcer)
+		{
+			if(singltonEnforcer == null) throw new IllegalOperationError("真各应，要用getInstance方法获取单例");
+			else
+			{
+				_bytesLoaderQueue = new LoaderQueue();
+				_displayLoaderQueue = new LoaderQueue();
+				
+				_bytesLoader = new BytesLoader(_bytesLoaderQueue,_displayLoaderQueue);
+				_displayLoader = new DisplayLoader(_displayLoaderQueue);
+				
+				
+				_cacher = SmartSourceCacher.getInstance();
+				_swfPackDic = new Dictionary();
+				
+				_sharedObj = _cacher.global;
+				if(_sharedObj.data["ph"] != null)
+				{
+					trace("再次进入引擎---上次储存的资源是:"+_sharedObj.data["ph"]);
+				}else{
+					_sharedObj.data["ph"] = "欢迎来到中国钓鱼岛观光";
+					trace("首次进入引擎");
+				}
+			}
+			
+		}  
+		
+		/**
+		 * 
+		 * @return 单例
+		 * 
+		 */		
+		public static function getInstance():LoaderManager
+		{
+			_instance ||= new LoaderManager( new SingltonEnforcer());
+			return _instance;
+		}
+		
+		/**
+		 * 加载bitmap资源
+		 * <注：>当不需要bitmap资源释放资源时，请直接将调用其bitmapData.dispose()方法，这跟isCo_和isSo_没有影响
+		 *设置此方法参数请注意策略
+		 * **************************************************************************************************
+		 * @param url_ 资源地址
+		 * @param $bitmap 已经实例（new）过的bitmap对象，传引用时，一定要先实例bitmap，否则会报错，里面不想加以判断
+		 * @param isCo_ 是否存入内存(留个备份，方便相同资源下次申请以省去加载环节)，不一定要什么资源都存入资源库内存。
+		 * 但是像几个模块经常用的图片就要存入，比如背包图片，技能图片等
+		 * @param isSo_ 是否存在用户磁盘上，下次打开游戏以变直接从用户电脑磁盘读取数据。当然这得用户同意我存储才行
+		 * @param isUseDefRe_ 是否使用默认资源
+		 * 
+		 */			
+		public function getBitmap (url_:String,$bitmap:Bitmap,isCo_:Boolean=false,isSo_:Boolean=false,
+								   isUseDefRe_:Boolean=false):void
+		{
+			if(isUseDefRe_)  $bitmap.bitmapData = _cacher.getValue("request.png") as BitmapData; // 默认资源为png，没必要进行大小缩放
+			
+			var node :LoaderQueueNode = new LoaderQueueNode();
+			var nodeData :Object = node.data;
+			
+			nodeData.bitmap = $bitmap;
+			nodeData.url = url_;
+			
+			nodeData.handleFun = handleBitmap;
+			
+			nodeData.type = LoaderType.BITMAP;
+			nodeData.isCo = isCo_;
+			nodeData.isSo = isSo_;
+			
+			if(_cacher.contain(url_)) //内存中查找
+			{
+				nodeData.bytesArray = _cacher.getValue(url_) as ByteArray;
+				startDisplayLoader(node);
+				
+			}else if(_sharedObj.data[url_]){ //本地中查找(第二次进入游戏)
+				
+				nodeData.bytesArray = _sharedObj.data[url_] as ByteArray;
+				startDisplayLoader(node);
+				
+			}else{ // 都没找到就加入到加载队列中
+				
+				_bytesLoaderQueue.enQueue(node);
+				trace("bitmap被放入BytesLoader加载队列")
+				
+				if(!_bytesLoader.isLoading)
+					_bytesLoader.load(url_,tryBytesLoad);
+			}
+			
+		}
+		
+		
+		/**
+		 * 加载影片剪辑（movieClip）
+		 * <注>：缓存，cpu占用与资源释放问题已经经过一系列测试.安全，绿色，无污染，请放心使用
+		 * <注：>如果想完全释放此bitmapMovie内存请调用bitmapMovie.recycle()方法并将bitmapMovie赋为null，这根isCo_和isSo_没有影响
+		 * 设置此方法参数请注意策略
+		 * ******************************************************************************************************************
+		 * @param url_资源地址 
+		 * @param $container 已经实例（new）过的bitmapMovie对象，传引用时，一定要先实例bitmapMovie，否则会报错，里面不想加以判断
+		 * @param isCo_是否存在内存(留个备份，方便相同资源下次申请省去加载环节)但是isCo有讲究，如果只是出现一次的movieClip资源不用存入内存留个备份，isSo_就更没必要了
+		 * @param isSo_ 是否存在用户磁盘上，下次打开游戏以变直接从用户电脑磁盘读取数据。当然这得用户同意我存储才行
+		 * @param isUseDefRe_是否使用默认资源
+		 * @param $callBack 加载完成后的回调函数，当出现一样的资源在同一地方重复使用时，可以先加载一个资源，并且传入回调函数，这样在这个回调函数里面在去new 其它一样资源对象。这样比较高效，节省网络资源
+		 * 
+		 */		
+		public function getMovieClip(url_:String,$container:BitmapMovie,isCo_:Boolean=false,
+									 isSo_:Boolean=false,isUseDefRe_:Boolean=false,$callBack:Function=null):void
+		{
+			
+			if(isUseDefRe_)	    $container.bitmap.bitmapData = _cacher.getValue("default.png") as BitmapData;
+			
+			var node :LoaderQueueNode = new LoaderQueueNode();
+			var nodeData :Object = node.data;
+			
+			nodeData.container = $container;
+			nodeData.url = url_;
+			
+			nodeData.callBack = $callBack;
+			nodeData.handleFun = handleMovieClip;
+			
+			nodeData.type = LoaderType.MOVIECLIP;
+			nodeData.isCo = isCo_;
+			nodeData.isSo = isSo_;
+			
+			if(_cacher.contain(url_))
+			{
+				nodeData.bytesArray = _cacher.getValue(url_) as ByteArray;
+				startDisplayLoader(node);
+				
+			}else if(_sharedObj.data[url_]){
+				
+				nodeData.bytesArray = _sharedObj.data[url_] as ByteArray;
+				startDisplayLoader(node);
+				
+			}else{
+				_bytesLoaderQueue.enQueue(node);
+				trace("movieClip被放入BytesLoader加载队列")
+				
+				if(!_bytesLoader.isLoading)
+					_bytesLoader.load(url_,tryBytesLoad);
+			}
+			
+		}
+		
+		/**
+		 * 加载xml数据。等到了游戏发布时，一般要做加密处理(应该要做一个工具，思路已通)，加载的便不是xml数据，而是自定义的文件格式
+		 * @param url_资源地址
+		 * @param $callBack回调函数
+		 * @param isCo_是否资源库内存。有很多都是不用存入的
+		 * @param isSo_是否存入用户磁盘
+		 * 
+		 */		
+		public function getXml(url_:String,$callBack:Function,isCo_:Boolean=false,isSo_:Boolean=false):void
+		{
+			
+			if(_cacher.contain(url_)) 
+			{
+				$callBack(new XML(_cacher.getValue(url_)));
+			}else if(_sharedObj.data[url_]){
+				$callBack(new XML(_sharedObj.data[url_]));
+			}else{
+				
+				
+				var node :LoaderQueueNode = new LoaderQueueNode();
+				var nodeData :Object = node.data;
+				
+				nodeData.url = url_;
+				nodeData.type = LoaderType.XML;
+				
+				nodeData.callBack = $callBack;
+				nodeData.handleFun = handleXml;
+				
+				nodeData.type = LoaderType.XML;
+				nodeData.isCo = isCo_;
+				nodeData.isSo = isSo_;
+				
+				_bytesLoaderQueue.enQueue(node);
+				trace("xml被放入加载队列")
+				
+				if(!_bytesLoader.isLoading)
+					_bytesLoader.load(url_,tryBytesLoad);
+			}
+		}
+		
+		/**
+		 * 加载模块资源（swf中包含游戏音乐或者模块中的零碎图片）
+		 * 需要mp3资源时直接调用Soundmanager提供的接口就行
+		 * <注：>模块加载的资源通常是一个功能模块的零碎资源，这样方便加载和管理。使用时将其加载进来。一般模块资源直接放在当期加载域当中，然后通过Reflection反射机制得到想要的资源
+		 * ************************************************************************************************************************
+		 * @param url资源地址
+		 * @param $callBack回调函数。 可选参数，默认为否.可以提供预加载服务：即在游戏还没有用到某个模块时，先提前加载，但不传入回调函数，当需要加载时，直接调用此方法，传入函数解析模块
+		 * @param isShowTitle_是否展示加载过渡动画。 可选参数，默认为否
+		 * @param describtion_对过渡动画的描述。比如设置为“潘豪”，则-展示为我正在努力加载潘豪资源-
+		 * 
+		 */		
+		public function getModualSwf(url_:String,$callBack:Function=null,isShowTitle_:Boolean = false,describtion_:String =""):void
+		{						
+			if(_swfPackDic[url_] == true)
+			{
+				$callBack && $callBack();
+			}else{
+				
+				var node :LoaderQueueNode = new LoaderQueueNode();
+				var nodeData :Object = node.data;
+				
+				nodeData.url = url_;
+				nodeData.type = LoaderType.MODUAL_SWF_RESOURCE;
+				
+				nodeData.callBack = $callBack;
+				nodeData.handleFun = handleModualSWF;
+				
+				nodeData.isShowTitle = isShowTitle_;
+				nodeData.describtion = describtion_;
+				
+				_displayLoaderQueue.enQueue(node);
+				// trace("swf模块资源被放入加载队列");
+				
+				if(!_displayLoader.isLoading)
+					_displayLoader.load(url_,tryBytesLoad);
+				
+			}
+		}
+		
+		
+		
+		
+		/**
+		 *将swf资源转换为bitmapMovie。慎用 
+		 * 一般一个大的swf里面可能封装一些小的swf，这时当加载进来时，需要通过反射机制取出swf所用。由于尺寸比较小的movieClip
+		 * 在转换为bitmap渲染时品质有一定损失，这样造成一定的不美观。所以，此方法慎用。建议直接通过反射机制将movieClip取出来操作
+		 * @param key 资源索引值
+		 * @param $movieClip 通过反射机制取出的movieClip
+		 * @return BitmapMovie
+		 * 
+		 */		
+		public function changeSwfToBitmapMovie(key:String,$movieClip:MovieClip):BitmapMovie
+		{
+			var bitmapMovie :BitmapMovie = new BitmapMovie();
+			bitmapMovie.frameInfo = BitmapCacher.cacheBitmapMovie($movieClip);
+			bitmapMovie.url = key;
+			
+			return bitmapMovie;
+		}
+		
+		/**开启displayLoader加载*/
+		private function startDisplayLoader(node :LoaderQueueNode):void
+		{
+			_displayLoaderQueue.enQueue(node);
+			
+			if(!_displayLoader.isLoading)
+				_displayLoader.loadBytes(node.data.bytesArray,tryDisplayLoad);
+		}
+		
+		/**加载完bitmap资源后的回调*/
+		private function handleBitmap($node:LoaderQueueNode,$bmpd:BitmapData):void
+		{
+			var nodeData :Object = $node.data;
+			nodeData.bitmap.bitmapData = $bmpd;
+			
+			if(nodeData.isCo)	
+				_cacher.add(nodeData.url,nodeData.bytesArray);
+			if(nodeData.isSo)	
+				_sharedObj.data[nodeData.url] = nodeData.bytesArray;
+			
+			$node.data = null;
+			$bmpd = null;
+		}		
+		
+		/**加载完movieClip之后的回调*/
+		private function handleMovieClip($node:LoaderQueueNode,$mc:MovieClip):void
+		{
+			
+			$node.data.container.frameInfo = BitmapCacher.cacheBitmapMovie($mc);
+			var nodeData :Object = $node.data;
+			
+			if(nodeData.isCo)	{
+				_cacher.add(nodeData.url,nodeData.bytesArray);trace(nodeData.url);}
+			if(nodeData.isSo)	
+				_sharedObj.data[nodeData.url] = nodeData.bytesArray;
+			
+			$mc = null;
+		}
+		
+		/**加载完模块资源后的回调*/
+		private function handleModualSWF($node:LoaderQueueNode):void
+		{
+			_swfPackDic[$node.data.url] = true;
+			
+		}
+		
+		/**加载完xml资源后的回调*/
+		private function handleXml($node:LoaderQueueNode):void
+		{
+			var nodeData :Object = $node.data;
+			
+			if(nodeData.isCo)	
+				_cacher.add(nodeData.url,nodeData.data);
+			
+			if(nodeData.isSo)	
+				_sharedObj.data[nodeData.url] = nodeData.data;
+			
+		}
+		
+		
+		/**
+		 *每次当一个资源加载完成后都应该执行此函数判断是否还有加载对象 
+		 * 
+		 */		
+		private function tryDisplayLoad():void
+		{
+			if(_displayLoaderQueue.length>0)
+			{				
+				
+				var nodeData :Object = _displayLoaderQueue.getFirstNode().data
+				var bytesArray :ByteArray = nodeData.bytesArray;
+				
+				switch(nodeData.type)
+				{
+					case LoaderType.BITMAP:
+					{
+						_displayLoader.loadBytes(bytesArray,tryDisplayLoad);
+						break;
+					}
+					case LoaderType.MOVIECLIP:
+					{
+						
+						_displayLoader.loadBytes(bytesArray,tryDisplayLoad);
+						break;
+					}
+					case LoaderType.MODUAL_SWF_RESOURCE:
+					{
+						_displayLoader.load(nodeData.url,tryDisplayLoad);
+						break;
+					}
+				}
+			}
+			
+		}
+		
+		
+		/**
+		 *每次当一个资源二进制加载完成后都应该执行此函数判断是否还有二进制加载对象 
+		 * 
+		 */		
+		private function tryBytesLoad():void
+		{
+			if(!_displayLoader.isLoading)	tryDisplayLoad();
+			
+			
+			if(_bytesLoaderQueue.length>0) 
+			{
+				var firstNodeData :Object = _bytesLoaderQueue.getFirstNode().data;
+				switch(firstNodeData.type)
+				{
+					case LoaderType.BITMAP:
+					{
+						// trace("继续二进制加载bitmap");
+						_bytesLoader.load(firstNodeData.url,tryBytesLoad);
+						break;
+					}
+					case LoaderType.XML:
+					{
+						// trace("继续二进制加载xml");
+						_bytesLoader.load(firstNodeData.url,tryBytesLoad);
+						break;
+					}
+						
+					case LoaderType.MOVIECLIP:
+					{
+						// trace("继续二进制加载movieClip");
+						_bytesLoader.load(firstNodeData.url,tryBytesLoad);
+						break;
+					}
+				}
+			}
+			
+		}
+		
+		//*************************************** function over *******************************
+	}  
+}  
+internal class SingltonEnforcer{}

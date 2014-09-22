@@ -1,0 +1,212 @@
+package src.controls
+{
+	import flash.desktop.Clipboard;
+	import flash.desktop.ClipboardFormats;
+	import flash.display.Bitmap;
+	import flash.display.BitmapData;
+	import flash.display.DisplayObject;
+	import flash.display.Loader;
+	import flash.display.Sprite;
+	import flash.events.Event;
+	import flash.events.MouseEvent;
+	import flash.events.NativeDragEvent;
+	import flash.filesystem.File;
+	import flash.filesystem.FileMode;
+	import flash.filesystem.FileStream;
+	import flash.net.FileFilter;
+	import flash.net.URLRequest;
+	import flash.utils.ByteArray;
+	
+	import mx.containers.Box;
+	import mx.containers.HBox;
+	import mx.controls.Alert;
+	import mx.controls.Label;
+	import mx.core.UIComponent;
+	
+	import src.containers.ProjectPanel;
+	import src.events.EditorEvents;
+	import src.models.MainEditorModel;
+	import src.models.ProjectModel;
+
+	/**
+	 *@author tanshiyu
+	 *@date 2013-8-29
+	 */
+	public class ProjectControls
+	{
+		private var projectModel:ProjectModel;
+		private var projectPanel:ProjectPanel;
+		
+		public static var dataFiles :Array = new Array();
+		private var _xmlDataSelectFile:File;
+		private var _mapDataFileFilter:FileFilter = new FileFilter("Image", "*.png;*.jpg;");//地图文件过滤
+		private var _dataFile:File;
+		
+		private var data :ByteArray = new ByteArray();
+		private var currentUrlString:String;
+		private var currentIndex:int;
+		
+		public function ProjectControls(_projectPanel:ProjectPanel,_projectModel:ProjectModel)
+		{
+			projectPanel = _projectPanel;
+			projectModel = _projectModel;
+			addListener();
+		}
+		
+		private function addListener():void
+		{
+			projectPanel.addEventListener(NativeDragEvent.NATIVE_DRAG_ENTER, onDragInHandler);
+			projectPanel.openbutton.addEventListener(MouseEvent.CLICK,onOpen);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.CREAT_UI,creatUI);
+			EditorEvents.dispathcer.addEventListener(EditorEvents.REMOVE_UI,removeUI);
+		}
+		
+		protected function onOpen(event:MouseEvent):void
+		{
+			_xmlDataSelectFile = File.applicationDirectory;
+			_xmlDataSelectFile.browseForOpen("选择要处理的图片文件",[_mapDataFileFilter]);
+			_xmlDataSelectFile.addEventListener(Event.SELECT,selectMapData);
+		}
+		
+		//选择了地图文件
+		private function selectMapData(evet:Event):void{
+			
+			_xmlDataSelectFile.removeEventListener(Event.SELECT,selectMapData);
+			_dataFile = File(evet.target);
+			dataFiles.push(_dataFile);
+			showPic();
+		}
+		
+		protected function onDragInHandler(event:NativeDragEvent):void
+		{
+			var transferable : Clipboard = event.clipboard;
+			
+			if(transferable.hasFormat(ClipboardFormats.FILE_LIST_FORMAT))
+			{
+				var files : Array = transferable.getData(ClipboardFormats.FILE_LIST_FORMAT) as Array;
+				
+				if(files)
+				{
+					_dataFile= File(files[files.length-1]);
+					
+					if((_dataFile.name.indexOf(".png")== -1))
+					{
+						Alert.show("请导入png文件");
+					}else{
+						Alert.show("图片文件已经成功导入");
+						
+						dataFiles.push(_dataFile);
+						showPic();
+					}
+				}
+			}
+		}
+		
+		private function showPic():void
+		{
+			var fileStream :FileStream = new FileStream();
+			fileStream.open(dataFiles[dataFiles.length-1], FileMode.READ);
+			fileStream.readBytes(data);//将字节读入data
+			
+			var dataFile :File = dataFiles[dataFiles.length -1];
+			var _urlStr :String= File.applicationDirectory.nativePath;
+			var name :String = dataFile.name.substring(0,dataFile.name.length-3);
+			_urlStr = _urlStr.replace(/\\/g, "/");
+			var path :String = _urlStr+'/data/'+name+"png";
+			var fileStream1 :FileStream = new FileStream();
+			fileStream1.open( new File(path),FileMode.WRITE);
+			fileStream1.writeBytes(data);
+			fileStream1.close();
+			Alert.show("处理成功,保存路径是："+path);
+			
+			fileStream.close();
+			
+			var _loader :Loader = new Loader();
+			_loader.contentLoaderInfo.addEventListener(Event.COMPLETE, onHadlePic);
+//			_loader.loadBytes(data);
+			var urlstring:String;
+			urlstring = "data/" + name + "png";
+			_loader.load(new URLRequest(urlstring));
+			function onHadlePic(event:Event):void
+			{
+				_loader.contentLoaderInfo.removeEventListener(Event.COMPLETE, onHadlePic);
+				var bitmap :Bitmap = event.target.content as Bitmap;
+				var bitmapContainer:Sprite = new Sprite();
+				bitmapContainer.addChild(bitmap);
+				bitmapContainer.width = 20;
+				bitmapContainer.height = 20;
+				bitmapContainer.buttonMode = true;
+				bitmapContainer.name =currentIndex.toString();
+				projectModel.urlDictionary[bitmapContainer.name] = urlstring;
+				bitmapContainer.addEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+				
+				var bitmapBox:UIComponent = new UIComponent;
+				bitmapBox.addChild(bitmapContainer);
+				bitmapBox.setStyle("borderStyle","solid");
+				bitmapBox.width = bitmapContainer.width;
+				bitmapBox.height = bitmapContainer.height;
+				projectPanel.resBox.addChild(bitmapBox);
+				currentIndex++;
+			}
+		}
+		
+		protected function onMouseDown(event:MouseEvent):void
+		{
+			currentUrlString = projectModel.urlDictionary[event.target.name];
+			var bitmapdate:BitmapData = new BitmapData(event.target.width,event.target.height,true);
+			bitmapdate.draw(event.target as DisplayObject);
+			var bitmap:Bitmap = new Bitmap(bitmapdate);
+			var sprite:Sprite = new Sprite();
+			sprite.addChild(bitmap);
+			event.target.parent.addChild(sprite);
+			sprite.x = event.target.x;
+			sprite.y = event.target.y;
+			sprite.addEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+			sprite.buttonMode = true;
+			sprite.name = event.target.name;
+			
+			event.target.addEventListener(MouseEvent.MOUSE_UP,onMouseUp);
+			projectPanel.stage.addChild(event.target as DisplayObject);
+			event.target.x = projectPanel.stage.mouseX - event.target.width/2;
+			event.target.y = projectPanel.stage.mouseY - event.target.height/2;
+			event.target.startDrag();
+		}
+		
+		protected function onMouseUp(event:MouseEvent):void
+		{
+			event.target.stopDrag();
+			projectPanel.stage.removeChild(event.target as DisplayObject);
+			event.target.removeEventListener(MouseEvent.MOUSE_DOWN,onMouseDown);
+			event.target.removeEventListener(MouseEvent.MOUSE_UP,onMouseUp);
+			//判断现在是否是在编辑皮肤状态，如果是则发送拖动图片消息，如果不是则不发送
+			if(MainEditorModel.isEditSkin) {
+				EditorEvents.dispathcer.dispatchEvent(new EditorEvents(EditorEvents.CHANGE_SKIN,currentUrlString));
+			}
+		}
+		
+		protected function creatUI(event:EditorEvents):void {
+			var bitmapdate:BitmapData = new BitmapData(event.data.width,event.data.height);
+			bitmapdate.draw(event.data);
+			var bitmap:Bitmap = new Bitmap(bitmapdate);
+			bitmap.width = bitmap.height = 20;
+			var bitmapBox:Box = new Box();
+			bitmapBox.setStyle("borderStyle","solid");
+			bitmapBox.width = bitmapBox.height = 20;
+			bitmapBox.rawChildren.addChild(bitmap);
+			var bitmapLabel:Label = new Label();
+			bitmapLabel.text = event.data.name;
+			var hbox:HBox = new HBox();
+			hbox.addChild(bitmapBox);
+			hbox.addChild(bitmapLabel);
+			projectModel.dictionary[event.data] = hbox;
+			projectPanel.componentsBox.addChild(hbox);
+		}
+		
+		protected function removeUI(event:EditorEvents):void {
+			for(var ui:Object in projectModel.dictionary) {
+				ui = event.data;
+				projectPanel.componentsBox.removeChild(projectModel.dictionary[ui]);
+			}
+		}
+	}
+}

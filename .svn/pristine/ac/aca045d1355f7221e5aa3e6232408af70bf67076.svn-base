@@ -1,0 +1,60 @@
+package src.managers
+{
+	import containers.SDPopupWin;
+	
+	import flash.display.Bitmap;
+	import flash.display.BitmapData;
+	import flash.display.DisplayObject;
+	
+	import morn.core.components.Label;
+	import morn.core.components.SimpleButton;
+	import morn.core.components.SimpleImage;
+	import morn.core.components.TextInput;
+	import morn.core.utils.BitmapUtils;
+	
+	import org.utils.ClassManager;
+
+	
+	public class UIFactory
+	{
+		
+		/**
+		 * 创建UI 
+		 */		
+		public static function createUI(type:String,name:String = ""):DisplayObject
+		{
+			var creatUI:DisplayObject;
+			switch(type)
+			{
+				case "TextInput":
+					creatUI = new Label("标签");
+					creatUI.name = "label";
+					break;
+				case "SimpleButton":
+					var simpleButton:SimpleButton = new SimpleButton();
+					var buttonBitmapclips:Vector.<BitmapData> = BitmapUtils.createClips(ClassManager.createBitmapDataInstance("button"),1,3);
+					simpleButton.upState = new Bitmap(buttonBitmapclips[0]);
+					simpleButton.overState = new Bitmap(buttonBitmapclips[1]);
+					simpleButton.downState = new Bitmap(buttonBitmapclips[2]);
+					creatUI = simpleButton;
+					creatUI.name = "simpleButton";
+					break;
+				case "Image":
+					var image:SimpleImage = new SimpleImage();
+					image.image = new Bitmap(ClassManager.createBitmapDataInstance("tab"));
+					creatUI = image;
+					creatUI.name = "simpleImage";
+					break;
+				
+				case "SDPopupWin":
+					creatUI = new SDPopupWin();
+					creatUI.name = "win";
+					break;
+				
+				default:
+					return null;
+			}
+			return creatUI;
+		}
+	}
+}

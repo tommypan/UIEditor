@@ -1,0 +1,34 @@
+package src.events
+{
+	import flash.events.Event;
+
+	public class CodeEvent extends Event
+	{
+		/**
+		 * 导入XML
+		 */		
+		public static var IMPORT_XML:String 				= "IMPORT_XML";
+		/**
+		 * 创建XML
+		 */			
+		public static const CREATE_XML:String 				= "CREATE_XML";
+		
+		/**
+		 *创建代码 
+		 */
+		public static const CREAT_CODE:String               = "CREATE_CODE";
+		
+		private var _data:*;
+		
+		public function CodeEvent(type:String,data:*=null)
+		{
+			super(type,data);
+			_data = data;
+		}
+		
+		public function get data():*
+		{
+			return _data;
+		}
+	}
+}
